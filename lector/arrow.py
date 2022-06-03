@@ -9,6 +9,7 @@ from pyarrow.csv import InvalidRow
 
 from .abc import Reader
 from .inference import autocast
+from .log import LOG, schema_view
 from .utils import MISSING_STRINGS
 
 
@@ -92,4 +93,5 @@ class ArrowReader(Reader):
         if infer:
             tbl = autocast(tbl)
 
+        LOG.print(schema_view(tbl.schema, title="Table schema"))
         return tbl

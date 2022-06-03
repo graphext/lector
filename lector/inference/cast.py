@@ -2,8 +2,10 @@
 from functools import singledispatch
 
 import pyarrow.types as pat
-from pyarrow import Array, Table
+from pyarrow import Array, DataType, Schema, Table
+from rich.progress import Progress, TimeElapsedColumn
 
+from ..log import LOG, schema_diff_view
 from ..utils import proportion_unique
 from .dates import maybe_parse_dates
 from .lists import maybe_parse_lists
@@ -39,14 +41,36 @@ def autocast(arr: Array) -> Array:
 
 
 @autocast.register
-def _(tbl: Table) -> Table:
+def _(tbl: Table, log=True) -> Table:
 
-    for i, arr in enumerate(tbl):
+    schema = tbl.schema
 
-        name = tbl.column_names[i]
-        new = autocast(arr)
+    with Progress(*Progress.get_default_columns(), TimeElapsedColumn()) as progress:
+        task = progress.add_task("[red]Autocasting", total=tbl.num_columns)
 
-        if new.type != arr.type:
-            tbl = tbl.set_column(i, name, new)
+        for i, arr in enumerate(tbl):
+
+            name = tbl.column_names[i]
+            new = autocast(arr)
+            if new.type != arr.type:
+                tbl = tbl.set_column(i, name, new)
+
+            progress.update(task, advance=1)
+
+    if log and not schema.equals(tbl.schema):
+        diff = schema_diff(schema, tbl.schema)
+        LOG.print(schema_diff_view(diff, title="Autocast type changes"))
 
     return tbl
+
+
+def schema_diff(s1: Schema, s2: Schema) -> dict[str : tuple[DataType, DataType]]:
+    """Check differences in schema's column types."""
+    diff = {}
+
+    for field in s1:
+        other = s2.field(field.name)
+        if field.type != other.type:
+            diff[field.name] = (field.type, other.type)
+
+    return diff
