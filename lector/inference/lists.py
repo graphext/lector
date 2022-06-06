@@ -56,19 +56,14 @@ def maybe_cast_lists(
 
 def maybe_parse_lists(arr: Array, type: str | DataType | None = None) -> Array:
     """Parse strings into list, optionally with (inferrable) element type."""
+    subpat = RE_LIST_CLEAN
+    content = pac.replace_substring_regex(arr, pattern=subpat, replacement="")
+    result = pac.split_pattern(content, ",")
 
-    if proportion_listlike(arr) > 0.9:
+    if type is not None:
+        type = ensure_type(type)
+        result = result.cast(pa.list_(type))
+    else:
+        result = maybe_cast_lists(result, types=LIST_TYPES)
 
-        subpat = RE_LIST_CLEAN
-        content = pac.replace_substring_regex(arr, pattern=subpat, replacement="")
-        result = pac.split_pattern(content, ",")
-
-        if type is not None:
-            type = ensure_type(type)
-            result = result.cast(pa.list_(type))
-        else:
-            result = maybe_cast_lists(result, types=LIST_TYPES)
-
-        return result
-
-    return arr
+    return result

@@ -80,11 +80,15 @@ def proportion_unique(arr: Array) -> float:
     return n_unique / n_valid
 
 
+def proportion_trueish(arr: Array) -> float:
+    n_trueish = pac.sum(arr).as_py()
+    return n_trueish / len(arr)
+
+
 def proportion_equal(arr1: Array, arr2: Array, ignore_nulls=True) -> float:
     """Proportion of equal values, optionally ignoring nulls (which otherwise compare falsish."""
     equal = pac.equal(arr1, arr2)
     if ignore_nulls:
         equal = equal.drop_null()
 
-    n_equal = pac.sum(equal).as_py()
-    return n_equal / len(equal)
+    return proportion_trueish(equal)

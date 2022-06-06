@@ -3,14 +3,13 @@ from functools import singledispatch
 
 import pyarrow.types as pat
 from pyarrow import Array, DataType, Schema, Table
-from rich.progress import Progress, TimeElapsedColumn
 
-from ..log import LOG, schema_diff_view
+from ..log import LOG, schema_diff_view, track
 from ..utils import proportion_unique
 from .dates import maybe_parse_dates
-from .lists import maybe_parse_lists
+from .lists import maybe_parse_lists, proportion_listlike
 from .numbers import autocast_numbers
-from .strings import maybe_cast_category, proportion_text
+from .strings import maybe_cast_category, proportion_text, proportion_url
 
 
 @singledispatch
@@ -28,9 +27,17 @@ def autocast(arr: Array) -> Array:
         if pat.is_timestamp(arr.type):
             return arr
 
-        arr = maybe_parse_lists(arr, type=None)
-        if pat.is_list(arr.type):
-            return arr
+        if proportion_listlike(arr) > 0.9:
+            arr = maybe_parse_lists(arr, type=None)
+            if pat.is_list(arr.type):
+                return arr
+
+        if proportion_url(arr) > 0.75:
+            # ToDo: Add metadata identfying columnas as URL semantic
+            arr = maybe_cast_category(arr, max_cardinality=1.0)
+            if pat.is_dictionary(arr.type):
+                LOG.print("Encoding URL column as dictionary")
+                return arr
 
         if proportion_text(arr) < 0.9 or proportion_unique(arr) < 0.1:
             arr = maybe_cast_category(arr, max_cardinality=1.0)
@@ -45,17 +52,12 @@ def _(tbl: Table, log=True) -> Table:
 
     schema = tbl.schema
 
-    with Progress(*Progress.get_default_columns(), TimeElapsedColumn()) as progress:
-        task = progress.add_task("[red]Autocasting", total=tbl.num_columns)
+    for i, arr in track(enumerate(tbl), total=tbl.num_columns, desc="Autocasting"):
 
-        for i, arr in enumerate(tbl):
-
-            name = tbl.column_names[i]
-            new = autocast(arr)
-            if new.type != arr.type:
-                tbl = tbl.set_column(i, name, new)
-
-            progress.update(task, advance=1)
+        name = tbl.column_names[i]
+        new = autocast(arr)
+        if new.type != arr.type:
+            tbl = tbl.set_column(i, name, new)
 
     if log and not schema.equals(tbl.schema):
         diff = schema_diff(schema, tbl.schema)

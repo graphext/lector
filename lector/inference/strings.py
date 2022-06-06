@@ -5,7 +5,7 @@ from math import inf as INF
 import pyarrow.compute as pac
 from pyarrow import Array
 
-from ..utils import Number
+from ..utils import Number, proportion_trueish
 from .lists import RE_LIST_LIKE
 
 MAX_CARDINALITY: Number = 0.1
@@ -22,6 +22,16 @@ TEXT_IGNORE_LISTS: bool = True
 
 TEXT_PROPORTION_THRESHOLD: float = 0.8
 """Infer text type if a proportion or values greater than this is text-like. """
+
+RE_URL = (
+    r"^(http://www\.|https://www\.|http://|https://)?"  # http:// or https://
+    # r'^(https?://(www\.)?)?'  # http:// or https://
+    r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
+    r"localhost|"  # localhost...
+    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
+    r"(?::\d+)?"  # optional port
+    r"(?:/?|[/?]\S+)$"
+)
 
 
 def is_text(
@@ -49,8 +59,14 @@ def proportion_text(
     ignore_lists: bool = TEXT_IGNORE_LISTS,
 ) -> float:
     """Calculate proportion of natural language-like texts given criteria."""
-    is_txt = is_text(arr, min_spaces, min_length, ignore_lists)
-    return pac.sum(is_txt).as_py() / pac.count(arr).as_py()
+    is_txt = is_text(arr.drop_null(), min_spaces, min_length, ignore_lists)
+    return proportion_trueish(is_txt)
+
+
+def proportion_url(arr: Array) -> float:
+    """Use regex to find proportion of strings that are (web) URL-like."""
+    is_url = pac.match_substring_regex(arr.drop_null(), RE_URL, ignore_case=True)
+    return proportion_trueish(is_url)
 
 
 def maybe_cast_category(arr: Array, max_cardinality: Number = MAX_CARDINALITY) -> Array:

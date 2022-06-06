@@ -9,7 +9,7 @@ from pyarrow.csv import InvalidRow
 
 from .abc import Reader
 from .inference import autocast
-from .log import LOG, schema_view
+from .log import LOG, dict_view, schema_view
 from .utils import MISSING_STRINGS
 
 
@@ -40,6 +40,7 @@ class ArrowReader(Reader):
                 "quoted_strings_can_be_null": True,
             },
         }
+        LOG.print(dict_view(self.config, title="Detected CSV format"))
 
     def parse(
         self,
