@@ -60,7 +60,7 @@ def proportion_trailing_decimals(arr: Array) -> float:
     """Proportion of non-null dates in arr having fractional seconds."""
     valid = arr.drop_null()
     has_frac = pac.match_substring_regex(valid, RE_TRAILING_DECIMALS)
-    return proportion_trueish((has_frac))
+    return proportion_trueish(has_frac)
 
 
 def find_format(ts: TimestampScalar) -> str | None:
