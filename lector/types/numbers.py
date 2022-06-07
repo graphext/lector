@@ -37,47 +37,6 @@ def maybe_downcast_ints(arr: Array) -> Array | None:
     return None
 
 
-# @dataclass
-# class FloatToInt(Converter):
-#     """Attempts to cast to int after truncating the original floats."""
-
-#     def convert(self, array: Array) -> Converted | None:
-
-#         if not pat.is_floating(array.type):
-#             return None
-
-#         trunc = pac.trunc(array)
-#         prop_truncable = proportion_equal(array, trunc)
-
-#         if prop_truncable >= self.threshold:
-
-#             if pac.min(array).as_py() >= 0:
-#                 result = pac.cast(trunc, pa.uint64())
-#             else:
-#                 result = pac.cast(trunc, pa.int64())
-
-#             return Converted(result)
-
-#         return None
-
-
-# @dataclass
-# class DowncastInt(Converter):
-#     """Find the smallest int subtype that can hold all values."""
-
-#     def convert(self, array: Array) -> Converted | None:
-
-#         if not pat.is_integer(array.type):
-#             return None
-
-#         vmin, vmax = min_max(array, skip_nulls=True)
-#         type = smallest_int_type(vmin, vmax)
-#         if type is not None:
-#             return Converted(pac.cast(array, type))
-
-#         return None
-
-
 @dataclass
 @Registry.register
 class Number(Converter):
