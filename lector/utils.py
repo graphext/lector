@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from collections import namedtuple
 from typing import Union
 
+import pyarrow as pa
 from pyarrow import type_for_alias  # noqa: F401
-from pyarrow import Array
+from pyarrow import Array, DataType, Schema
 from pyarrow import compute as pac
 from pyarrow.lib import ensure_type  # noqa: F401
 
@@ -73,6 +75,12 @@ def min_max(arr: Array, skip_nulls: bool = True) -> tuple[Number, Number]:
     return mm["min"], mm["max"]
 
 
+def proportion_valid(arr: Array) -> float:
+    """Proportion of non-null values in array."""
+    size = len(arr)
+    return (size - arr.null_count) / size
+
+
 def proportion_unique(arr: Array) -> float:
     """Proportion of non-null values that are unique in array."""
     n_unique = pac.count_distinct(arr, mode="only_valid").as_py()
@@ -92,3 +100,51 @@ def proportion_equal(arr1: Array, arr2: Array, ignore_nulls=True) -> float:
         equal = equal.drop_null()
 
     return proportion_trueish(equal)
+
+
+def sorted_value_counts(arr: Array, order: str = "descending", top_n: int | None = None) -> Array:
+    """Arrow's built-in value count doesn't allow sorting."""
+    valcnt = arr.value_counts()
+    counts = valcnt.field("counts")
+    order = pac.array_sort_indices(counts, order="descending")
+    if top_n is None:
+        return valcnt.take(order)
+    else:
+        return valcnt.take(order[:top_n])
+
+
+def map_values(arr: Array, map: dict, unknown: str = "keep") -> Array:
+    """Slow value mapping in pure Python while Arrow doesn't have a native compute function.
+
+    For now assumes type can be left unchanged.
+    """
+    values = arr.to_pylist()
+
+    if unknown == "keep":
+        values = [map.get(val, val) for val in values]
+    else:
+        values = [map.get(val, None) for val in values]
+
+    return pa.array(values, type=arr.type)
+
+
+def schema_diff(s1: Schema, s2: Schema) -> dict[str : tuple[DataType, DataType]]:
+    """Check differences in schema's column types."""
+    diff = {}
+
+    for field in s1:
+        other = s2.field(field.name)
+        if field.type != other.type:
+            diff[field.name] = (field.type, other.type)
+
+    return diff
+
+
+def encode_metadata(d: dict):
+    """Json-byte-encode a dict, like Arrow expects its metadata."""
+    return {k.encode("utf-8"): json.dumps(v).encode("utf-8") for k, v in d.items()}
+
+
+def decode_metadata(d: dict):
+    """Decode Arrow metadata to dict."""
+    return {k.decode("utf-8"): json.loads(v.decode("utf-8")) for k, v in d.items()}

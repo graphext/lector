@@ -38,11 +38,6 @@ class Preambles:
         cls.DETECTORS[registered.__name__] = registered
         return registered
 
-    # @classmethod
-    # def items(cls) -> Iterator[tuple[str, type]]:
-    #     for k, v in cls.DETECTORS.items():
-    #         yield k, v
-
     @classmethod
     def detect(
         cls, buffer: TextIO, n_rows: int = N_ROWS_DFAULT, separator: str | None = None

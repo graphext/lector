@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Union
 
 import pyarrow as pa
 import pyarrow.csv as pacsv
 from pyarrow import DataType
 from pyarrow.csv import InvalidRow
 
+from ..log import LOG, dict_view, schema_view
+from ..utils import MISSING_STRINGS, ensure_type
 from .abc import Reader
-from .inference import autocast
-from .log import LOG, dict_view, schema_view
-from .utils import MISSING_STRINGS
+
+TypeDict = dict[str, Union[str, DataType]]
 
 
 class ArrowReader(Reader):
@@ -44,7 +45,7 @@ class ArrowReader(Reader):
 
     def parse(
         self,
-        types: str | dict[str | DataType] | None = None,
+        types: str | TypeDict | None = None,
         timestamp_formats: str | list[str] | None = None,
         null_values: str | Iterable[str] | None = None,
     ) -> pa.Table:
@@ -53,16 +54,12 @@ class ArrowReader(Reader):
         po = self.config["parse_options"]
         co = self.config["convert_options"]
 
-        if types == "auto":
-            infer = True
-            types = None
-        else:
-            infer = False
-
         if types is not None:
 
-            if isinstance(types, str):
-                types = {col: types for col in self.columns}
+            if isinstance(types, (str, DataType)):
+                types = {col: ensure_type(types) for col in self.columns}
+            elif isinstance(types, dict):
+                types = {col: ensure_type(type) for col, type in types.items()}
 
             co["column_types"] = types
 
@@ -91,8 +88,5 @@ class ArrowReader(Reader):
             convert_options=pa.csv.ConvertOptions(**co),
         )
 
-        if infer:
-            tbl = autocast(tbl)
-
-        LOG.print(schema_view(tbl.schema, title="Table schema"))
+        LOG.print(schema_view(tbl.schema, title="Parsed table schema"))
         return tbl

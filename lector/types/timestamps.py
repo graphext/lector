@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pyarrow.compute as pac
+import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
+
+from ..utils import proportion_trueish, proportion_valid
+from .abc import Conversion, Converter, Registry
 
 RE_TRAILING_DECIMALS: str = r"\.(\d+)$"
 
@@ -54,8 +60,7 @@ def proportion_trailing_decimals(arr: Array) -> float:
     """Proportion of non-null dates in arr having fractional seconds."""
     valid = arr.drop_null()
     has_frac = pac.match_substring_regex(valid, RE_TRAILING_DECIMALS)
-    n_fracs = pac.sum(has_frac).as_py()
-    return n_fracs / len(valid)
+    return proportion_trueish((has_frac))
 
 
 def find_format(ts: TimestampScalar) -> str | None:
@@ -73,7 +78,31 @@ def find_format(ts: TimestampScalar) -> str | None:
     return None
 
 
-def maybe_parse_dates(arr: Array, format: str | None = None, unit: str = "ms") -> Array:
+def maybe_parse_known_timestamps(
+    arr: Array,
+    format: str,
+    unit: str = "ms",
+    threshold: float = 1.0,
+) -> Array | None:
+    """Helper for parsing with known format and no fractional seconds."""
+
+    if threshold == 1.0:
+        try:
+            return pac.strptime(arr, format=format, unit=unit)
+        except Exception:
+            return None
+
+    result = pac.strptime(arr, format=format, unit=unit, error_is_null=True)
+    return result if proportion_valid(result) >= threshold else None
+
+
+def maybe_parse_timestamps(
+    arr: Array,
+    format: str | None = None,
+    unit: str = "ms",
+    threshold: float = 1.0,
+    return_format: bool = False,
+) -> Array | None:
     """Parse lists of strings as dates with format inference."""
 
     if proportion_trailing_decimals(arr) > 0.1:
@@ -81,13 +110,11 @@ def maybe_parse_dates(arr: Array, format: str | None = None, unit: str = "ms") -
         arr = pac.list_element(split, 0)
 
     if format is None:
-
         formats = ALL_FORMATS
+        valid = arr.drop_null()
 
-        # Try to move first matching format to front
-        non_null = arr.drop_null()
-        if len(non_null) > 0:
-            first_date = non_null[0]
+        if len(valid) > 0:
+            first_date = valid[0]
             first_format = find_format(first_date)
             if first_format is not None:
                 print(f"First date '{first_date}' matches {first_format}")
@@ -95,15 +122,39 @@ def maybe_parse_dates(arr: Array, format: str | None = None, unit: str = "ms") -
                 formats.remove(first_format)
                 formats.insert(0, first_format)
 
-        for i, fmt in enumerate(formats):
-            try:
-                return pac.strptime(arr, format=fmt, unit=unit)
-            except Exception:
-                pass
+    else:
+        formats = [format]
 
-        return arr
+    for fmt in formats:
+        result = maybe_parse_known_timestamps(arr, format=fmt, unit=unit, threshold=threshold)
+        if result is not None:
+            return result, fmt if return_format else result
 
-    try:
-        return pac.strptime(arr, format=format, unit=unit)
-    except Exception:
-        return arr
+    return None
+
+
+@dataclass
+@Registry.register
+class Timestamp(Converter):
+
+    format: str | None = None
+    unit: str = "ms"
+
+    def convert(self, array: Array) -> Conversion | None:
+
+        if not pat.is_string(array.type):
+            return None
+
+        result = maybe_parse_timestamps(
+            array,
+            format=self.format,
+            unit=self.unit,
+            threshold=self.threshold,
+            return_format=True,
+        )
+
+        if result is not None:
+            converted, format = result
+            return Conversion(converted, meta={"format": format})
+
+        return None
