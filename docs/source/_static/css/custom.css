@@ -1,0 +1,40 @@
+/* Visually separate classes a bit more. */
+.py.class > dt {
+    border-top: lightgrey solid 3px;
+    background: #f0f0f0;
+
+    /* border-top: rgba(var(--pst-color-inline-code),1) solid 3px; */
+    /* background: rgba(0, 91, 129, 0.1); */
+
+    margin-top: 50px;
+    padding-left: 5px
+}
+
+.py.method > dt {
+    border-left: lightgrey solid 3px;
+    background: #f0f0f0;
+    display: inline;
+    padding: 5px 10px 5px 10px;
+    font-size: 0.9rem;
+}
+
+.py.function > dt {
+    border-left: lightgrey solid 3px;
+    background: #f0f0f0;
+    /* display: inline; */
+    padding: 5px 10px 5px 10px;
+    font-size: 0.9rem;
+}
+
+.py.function > dt:before {
+    content: "func";
+    font-style: italic;
+}
+
+.py.attribute > dt,  .py.data > dt{
+    font-size: 0.9rem;
+}
+
+.autosummary.table .row-odd {
+    background: #f0f0f0;
+}

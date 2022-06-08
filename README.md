@@ -1,6 +1,8 @@
-# Install
+# Lector
 
-## PyPi
+## Install
+
+### PyPi
 
 Simply run
 
@@ -8,7 +10,7 @@ Simply run
 pip install ...
 ```
 
-## Development
+### Development
 
 To install a local copy for development, including all dependencies for test, documentation and code quality, use the following commands:
 
@@ -27,9 +29,9 @@ To test installation you may execute the [pytest](https://docs.pytest.org/) suit
 pytest -v .
 ```
 
-# Command line interface
+## Command line interface
 
-# Notebook
+## Notebook
 
 If you installed this packages into a brand new environment, and depending on the kind of environment (venv, conda etc.), after installation you may have to register this environment with jupyter for it to show as a kernel in notebooks:
 
