@@ -43,6 +43,7 @@ class DialectDetector(ABC):
         """Implement me."""
 
 
+@dataclass
 class StdLib(DialectDetector):
     """Use Python's built-in csv sniffer."""
 
@@ -72,6 +73,7 @@ class StdLib(DialectDetector):
 
 if CLEVER_CSV:
 
+    @dataclass
     class CleverCSV(DialectDetector):
 
         num_chars: int = int(1e6)

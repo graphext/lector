@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Union
+from typing import Dict, Iterable, Union
 
 import pyarrow as pa
 from pyarrow import Array, Table
@@ -11,7 +11,7 @@ from ..log import LOG, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
 
-Config = dict[str, dict]
+Config = Dict[str, dict]
 """An (ordered) dict of converter class names and corresponding parameters."""
 
 Converters = Union[Config, Iterable[Converter], None]

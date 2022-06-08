@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Union
+from typing import Dict, Iterable, Union
 
 import pyarrow as pa
 import pyarrow.csv as pacsv
@@ -11,7 +11,7 @@ from ..log import LOG, dict_view, schema_view
 from ..utils import MISSING_STRINGS, ensure_type
 from .abc import Reader
 
-TypeDict = dict[str, Union[str, DataType]]
+TypeDict = Dict[str, Union[str, DataType]]
 
 
 class ArrowReader(Reader):
