@@ -1,26 +1,19 @@
 /* Visually separate classes a bit more. */
 .py.class > dt {
-    border-top: lightgrey solid 3px;
-    background: #f0f0f0;
-
-    /* border-top: rgba(var(--pst-color-inline-code),1) solid 3px; */
-    /* background: rgba(0, 91, 129, 0.1); */
-
+    border-top: solid 3px;
     margin-top: 50px;
     padding-left: 5px
 }
 
 .py.method > dt {
-    border-left: lightgrey solid 3px;
-    background: #f0f0f0;
+    border-left: solid 3px;
     display: inline;
     padding: 5px 10px 5px 10px;
     font-size: 0.9rem;
 }
 
 .py.function > dt {
-    border-left: lightgrey solid 3px;
-    background: #f0f0f0;
+    border-left: solid 3px;
     /* display: inline; */
     padding: 5px 10px 5px 10px;
     font-size: 0.9rem;
@@ -35,6 +28,30 @@
     font-size: 0.9rem;
 }
 
-.autosummary.table .row-odd {
+html[data-theme="dark"], html[data-theme="light"] {
+    --pst-color-inline-code: var(--pst-color-primary);
+}
+
+html[data-theme="light"] .py.class > dt,
+html[data-theme="light"] .py.method > dt,
+html[data-theme="light"] .py.function > dt {
+    border-color: lightgrey;
     background: #f0f0f0;
+}
+
+html[data-theme="light"] .autosummary.table .row-odd {
+    background: #f0f0f0;
+}
+
+html[data-theme="dark"] .py.class > dt,
+html[data-theme="dark"] .py.method > dt,
+html[data-theme="dark"] .py.function > dt {
+    /* border-color: #82265b;
+    background: #372b32; */
+    border-color: var(--pst-color-primary);
+    background: #263033;
+}
+
+html[data-theme="dark"] .autosummary.table .row-odd {
+    background: #263033;
 }

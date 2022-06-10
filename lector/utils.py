@@ -1,3 +1,4 @@
+"""Common helpers to work with pyarrow objects."""
 from __future__ import annotations
 
 import json

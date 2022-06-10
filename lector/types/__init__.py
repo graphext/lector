@@ -1,3 +1,9 @@
+"""Subpackage for inferring column types in CSV files.
+
+This is instead or on top of Arrow's built-in inference, which currently doesn't detect
+list columns, timestamps in non-ISO formats, or semantic types such as URLs, natural language
+text etc.
+"""
 from .cast import Autocast
 from .lists import List
 from .numbers import Number

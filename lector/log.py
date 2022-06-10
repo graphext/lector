@@ -1,3 +1,4 @@
+"""Helpers to pretty print/log objects using Rich."""
 from __future__ import annotations
 
 from typing import Iterable, Sequence, TypeVar
