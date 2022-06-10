@@ -57,7 +57,7 @@ class Dialect:
     escape_char: str | None = None
     double_quote: bool = True
     skip_initial_space: bool = False
-    line_terminator: str = "\n"
+    line_terminator: str = "\r\n"  # Default in Python and correct according to official spec
     quoting: int = QUOTE_MINIMAL
 
     @classmethod
