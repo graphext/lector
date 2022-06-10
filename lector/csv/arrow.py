@@ -9,7 +9,7 @@ from pyarrow.csv import InvalidRow
 
 from ..log import LOG, dict_view, schema_view
 from ..utils import MISSING_STRINGS, ensure_type
-from .abc import Reader
+from .abc import EmptyFileError, Format, Reader
 
 TypeDict = Dict[str, Union[str, DataType]]
 
@@ -17,23 +17,28 @@ TypeDict = Dict[str, Union[str, DataType]]
 class ArrowReader(Reader):
     """Use base class detection methods to configure a pyarrow.csv.read_csv() call."""
 
-    def skip_invalid_row(self, row: InvalidRow) -> str:
+    @staticmethod
+    def skip_invalid_row(row: InvalidRow) -> str:
         if row.text and len(row.text) > 100:
             row = row._replace(text=row.text[:100])
 
-        print(f"Skipping row {row}")
+        # print(f"Skipping row {row}")
         return "skip"
 
-    def configure(self) -> None:
-        self.config = {
-            "read_options": {"encoding": self.encoding, "skip_rows": self.preamble},
+    @classmethod
+    def configure(cls, format: Format) -> dict:
+        return {
+            "read_options": {
+                "encoding": format.encoding,
+                "skip_rows": format.preamble,
+            },
             "parse_options": {
-                "delimiter": self.dialect["delimiter"],
-                "quote_char": self.dialect["quotechar"],
-                "double_quote": self.dialect["doublequote"],
-                "escape_char": self.dialect["escapechar"],
+                "delimiter": format.dialect.delimiter,
+                "quote_char": format.dialect.quote_char,
+                "double_quote": format.dialect.double_quote,
+                "escape_char": format.dialect.escape_char,
                 "newlines_in_values": True,
-                "invalid_row_handler": self.skip_invalid_row,
+                "invalid_row_handler": cls.skip_invalid_row,
             },
             "convert_options": {
                 "check_utf8": False,
@@ -41,7 +46,6 @@ class ArrowReader(Reader):
                 "quoted_strings_can_be_null": True,
             },
         }
-        LOG.print(dict_view(self.config, title="Detected CSV format"))
 
     def parse(
         self,
@@ -49,10 +53,16 @@ class ArrowReader(Reader):
         timestamp_formats: str | list[str] | None = None,
         null_values: str | Iterable[str] | None = None,
     ) -> pa.Table:
+        """Invoke Arrow's parser with inferred CSV format."""
 
-        ro = self.config["read_options"]
-        po = self.config["parse_options"]
-        co = self.config["convert_options"]
+        config = self.configure(self.format)
+
+        if self.log:
+            LOG.print(dict_view(config, title="Detected CSV format"))
+
+        ro = config["read_options"]
+        po = config["parse_options"]
+        co = config["convert_options"]
 
         if types is not None:
 
@@ -81,12 +91,21 @@ class ArrowReader(Reader):
         else:
             co["null_values"] = MISSING_STRINGS
 
-        tbl = pacsv.read_csv(
-            self.fp,
-            read_options=pa.csv.ReadOptions(**ro),
-            parse_options=pa.csv.ParseOptions(**po),
-            convert_options=pa.csv.ConvertOptions(**co),
-        )
+        try:
+            tbl = pacsv.read_csv(
+                self.fp,
+                read_options=pa.csv.ReadOptions(**ro),
+                parse_options=pa.csv.ParseOptions(**po),
+                convert_options=pa.csv.ConvertOptions(**co),
+            )
+        except pa.ArrowInvalid as exc:
 
-        LOG.print(schema_view(tbl.schema, title="Parsed table schema"))
+            if "Empty CSV file or block" in (msg := str(exc)):
+                raise EmptyFileError(msg)
+
+            raise
+
+        if self.log:
+            LOG.print(schema_view(tbl.schema, title="Parsed table schema"))
+
         return tbl

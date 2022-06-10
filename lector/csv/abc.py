@@ -4,11 +4,12 @@ from __future__ import annotations
 import io
 from abc import ABC, abstractmethod
 from csv import DictReader
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any, TextIO, Union
 
 from . import dialects, encodings
-from .dialects import DialectDetector
+from .dialects import Dialect, DialectDetector
 from .encodings import EncodingDetector
 from .preambles import Preambles
 
@@ -29,6 +30,16 @@ def is_empty(buffer: IO) -> bool:
     return empty
 
 
+@dataclass
+class Format:
+    """Holds all parameters needed to successfully read a CSV file."""
+
+    encoding: str | None = "utf-8"
+    preamble: int | None = 0
+    dialect: Dialect | None = field(default_factory=lambda: Dialect())
+    columns: list[str] | None = None
+
+
 class Reader(ABC):
     """Base class for CSV readers."""
 
@@ -38,11 +49,13 @@ class Reader(ABC):
         encoding: str | EncodingDetector | None = None,
         dialect: dict | DialectDetector | None = None,
         preamble: int | PreambleRegistry | None = None,
+        log: bool = True,
     ) -> None:
         self.fp = fp
         self.encoding = encoding or encodings.Chardet()
-        self.dialect = dialect or dialects.StdLib()
+        self.dialect = dialect or dialects.PySniffer()
         self.preamble = preamble or Preambles
+        self.log = log
 
     def decode(self, fp: FileLike) -> TextIO:
         """Make sure we have a text buffer."""
@@ -78,19 +91,19 @@ class Reader(ABC):
     def detect_dialect(self, buffer: TextIO) -> dict:
         """Detect separator, quote character etc."""
         if self.dialect is None:
-            return dialects.DEFAULT_DIALECT
+            return Dialect()
         elif isinstance(self.dialect, DialectDetector):
             return self.dialect.detect(buffer)
 
     @classmethod
-    def detect_columns(cls, buffer: TextIO, dialect: dict) -> list[str]:
+    def detect_columns(cls, buffer: TextIO, dialect: Dialect) -> list[str]:
         """Extract column names from buffer pointing at header row."""
-        dr = DictReader(buffer, **dialect)
+        reader = DictReader(buffer, dialect=dialect.to_builtin())
         try:
-            _ = next(dr)
+            _ = next(reader)
         except StopIteration:
             pass
-        return dr.fieldnames
+        return reader.fieldnames
 
     def analyze(self):
         """Infer all parameters required for reading a csv file."""
@@ -110,17 +123,12 @@ class Reader(ABC):
         self.columns = self.detect_columns(self.buffer, self.dialect)
         self.buffer.seek(0)
 
-    def info(self):
-        """Inferred parameters as dictionary."""
-        return {
-            "encoding": self.encoding,
-            "preamble": self.preamble,
-            "dialect": self.dialect,
-        }
-
-    @abstractmethod
-    def configure(self) -> None:
-        """Convert internal parameter to target parser's options."""
+        self.format = Format(
+            encoding=self.encoding,
+            preamble=self.preamble,
+            dialect=self.dialect,
+            columns=self.columns,
+        )
 
     @abstractmethod
     def parse(self, *args, **kwds) -> Any:
@@ -129,7 +137,6 @@ class Reader(ABC):
     def read(self, *args, **kwds) -> Any:
         try:
             self.analyze()
-            self.configure()
             result = self.parse(*args, **kwds)
             self.buffer.close()
             return result
