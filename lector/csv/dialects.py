@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from csv import QUOTE_MINIMAL, QUOTE_NONE
 from csv import Dialect as PyDialect
-from csv import Sniffer
+from csv import Sniffer, get_dialect
 from dataclasses import dataclass
 from itertools import islice
 from typing import TextIO
@@ -61,8 +61,10 @@ class Dialect:
     quoting: int = QUOTE_MINIMAL
 
     @classmethod
-    def from_builtin(cls, dialect: PyDialectT) -> Dialect:
+    def from_builtin(cls, dialect: str | PyDialectT) -> Dialect:
         """Make an instance from a built-in dialect class."""
+        if isinstance(dialect, str):
+            dialect = get_dialect(dialect)
 
         return Dialect(
             delimiter=dialect.delimiter,

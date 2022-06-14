@@ -1,23 +1,15 @@
 """Test detection of dialects of otherwise valid CSV files."""
 import io
-from csv import QUOTE_MINIMAL, get_dialect
+from csv import get_dialect
 
 import pytest
 from hypothesis import given
 from hypothesis.strategies import data
-from hypothesis_csv.strategies import csv as make_csv
-from rich import inspect
+from hypothesis_csv.strategies import csv as csv_strat
 
 from lector.csv.dialects import Dialect, PySniffer
 
-
-def equal(obj1, obj2):
-    eq = obj1 == obj2
-    if not eq:
-        inspect(obj1)
-        inspect(obj2)
-        return False
-    return True
+from .utils import equal, fix_expected_dialect
 
 
 @pytest.mark.parametrize("dialect_name", ["excel", "excel-tab", "unix"])
@@ -45,24 +37,12 @@ def test_dialect_roundtrip(dialect_name: str):
     assert equal(d1, d2)
 
 
-def test_simple_detector(simple_csv):
-    detector = PySniffer()
-    csv = io.StringIO(simple_csv.csv)
-    expected = simple_csv.format.dialect
-    detected = detector.detect(csv)
-    assert equal(expected, detected)
-
-
 @given(data=data())
 @pytest.mark.parametrize("dialect", ["excel", "excel-tab", "unix"])
 def test_dialects(dialect, data):
-    strategy = make_csv(dialect=dialect, lines=3, header=2)
+    strategy = csv_strat(dialect=dialect, lines=3, header=2)
     csv = data.draw(strategy)
     expected = Dialect.from_builtin(get_dialect(dialect))
-
-    # Adjust expected based on python sniffer's pecularities
-    expected.line_terminator = "\r\n"  # Hardcoded in sniffer (not detectable)
-    expected.quoting = QUOTE_MINIMAL  # Hardcoded in sniffer (not detectable)
-
+    expected = fix_expected_dialect(expected)
     detected = PySniffer().detect(io.StringIO(csv))
     assert equal(expected, detected)
