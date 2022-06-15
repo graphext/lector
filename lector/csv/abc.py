@@ -87,7 +87,7 @@ class Reader(ABC):
         if self.preamble is None:
             return 0
         elif issubclass(self.preamble, Preambles):
-            return Preambles.detect(buffer) or 0
+            return Preambles.detect(buffer, log=self.log) or 0
 
     def detect_dialect(self, buffer: TextIO) -> dict:
         """Detect separator, quote character etc."""

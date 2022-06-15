@@ -1,18 +1,17 @@
-from csv import QUOTE_MINIMAL
-
-from rich.pretty import pprint as print
+from lector.log import LOG
 
 
-def equal(obj1, obj2):
+def equal(obj1, obj2, extra=None):
+    """Helper to print useful info if result is unexpected."""
     eq = obj1 == obj2
+
     if not eq:
-        print(obj1)
-        print(obj2)
+        LOG.print(obj1)
+        LOG.print(obj2)
+
+        if extra is not None:
+            LOG.print(extra)
+
         return False
+
     return True
-
-
-def fix_expected_dialect(dialect):
-    dialect.line_terminator = "\r\n"  # Hardcoded in sniffer (not detectable)
-    dialect.quoting = QUOTE_MINIMAL  # Hardcoded in sniffer (not detectable)
-    return dialect

@@ -1,6 +1,6 @@
 """Test detection of dialects of otherwise valid CSV files."""
 import io
-from csv import get_dialect
+from csv import QUOTE_MINIMAL, get_dialect
 
 import pytest
 from hypothesis import given
@@ -9,7 +9,13 @@ from hypothesis_csv.strategies import csv as csv_strat
 
 from lector.csv.dialects import Dialect, PySniffer
 
-from .utils import equal, fix_expected_dialect
+from .utils import equal
+
+
+def fix_expected_dialect(dialect):
+    dialect.line_terminator = "\r\n"  # Hardcoded in sniffer (not detectable)
+    dialect.quoting = QUOTE_MINIMAL  # Hardcoded in sniffer (not detectable)
+    return dialect
 
 
 @pytest.mark.parametrize("dialect_name", ["excel", "excel-tab", "unix"])

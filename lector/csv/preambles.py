@@ -4,8 +4,11 @@ from __future__ import annotations
 import csv
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from itertools import islice
-from typing import TextIO
+from typing import Iterable, TextIO
+
+from ..log import LOG
 
 N_ROWS_DFAULT: int = 100
 
@@ -14,22 +17,14 @@ QUOTE: str = '"'
 CONSECUTIVE_QUOTES = re.compile(r'"+')
 
 
+@dataclass
 class PreambleDetector(ABC):
     """Base class for detecting preambles (initial junk) in a CSV buffer."""
 
-    def __init__(
-        self,
-        buffer: TextIO,
-        n_rows: int = N_ROWS_DFAULT,
-        delimiter: str = ",",
-    ) -> None:
-        self.buffer = buffer
-        self.cursor = buffer.tell()
-        self.n_rows = n_rows
-        self.delimiter = delimiter
+    n_rows: int = N_ROWS_DFAULT
 
     @abstractmethod
-    def detect(self) -> int:
+    def detect(self, buffer: TextIO) -> int:
         """Detect preamble and return number of lines to skip."""
 
 
@@ -44,15 +39,32 @@ class Preambles:
         return registered
 
     @classmethod
-    def detect(cls, buffer: TextIO, n_rows: int = N_ROWS_DFAULT, delimiter: str = ",") -> int:
-        """Get first preamble detector matching the csv buffer."""
+    def detect(
+        cls,
+        buffer: TextIO,
+        detectors: Iterable[PreambleDetector] | None = None,
+        log: bool = False,
+    ) -> int:
+        """Get result of first preamble detector matching the csv buffer.
+
+        Matching here means detecting more than 0 rows of preamble text, and result
+        is the number of rows to skip.
+
+        If no detectors are provided (as ordered sequence), all registered
+        detector classes are tried in registered order and using default parameters.
+        """
         cursor = buffer.tell()
 
-        for name, detcls in cls.DETECTORS.items():
-            detector = detcls(buffer, n_rows=n_rows, delimiter=delimiter)
-            skiprows = detector.detect()
+        if detectors is None:
+            detectors = (det() for det in cls.DETECTORS.values())
+
+        for detector in detectors:
+            skiprows = detector.detect(buffer)
             if skiprows:
-                print(f"'{name}' preamble matches CSV buffer: detected {skiprows} rows to skip.")
+                if log:
+                    name = detector.__class__.__name__
+                    msg = f"'{name}' matches CSV buffer: detected {skiprows} rows to skip."
+                    LOG.print(msg)
                 return skiprows
 
             buffer.seek(cursor)
@@ -61,35 +73,44 @@ class Preambles:
 
 
 @Preambles.register
+@dataclass
 class Brandwatch(PreambleDetector):
     """Detect CSV files exported from Brandwatch.
 
-    Brandwatch uses comma as separator and includes a row of commas only
-    before the real csv starts.
+    Brandwatch uses the comma as separator and includes a row of commas only
+    to separate preamble texts from the CSV table as such.
     """
 
-    def detect(self) -> int:
-        self.buffer.seek(self.cursor)
-        rows = [row.strip() for row in islice(self.buffer, self.n_rows)]
+    def detect(self, buffer: TextIO) -> int:
+
+        rows = [row.strip() for row in islice(buffer, self.n_rows)]
 
         for i, row in enumerate(rows):
-            if len(row) > 0 and all(x == self.delimiter for x in row):
+            if len(row) > 0 and all(x == "," for x in row):
                 return i + 1
 
         return 0
 
 
 @Preambles.register
+@dataclass
 class Fieldless(PreambleDetector):
-    """Detects initial rows that don't contain any delimited fields."""
+    """Detects initial rows that don't contain any delimited fields.
 
-    def detect(self) -> int:
-        """Count how many consecutive initial fieldless rows we have."""
-        self.buffer.seek(self.cursor)
+    Tries parsing buffer using Python's built-in csv functionality, assuming different potential
+    delimiter characters. If given a specific delimiter the parser detects N initial lines
+    containing a single field only, followed by at least one line containing multiple fields,
+    then N is the number of rows to skip.
+    """
+
+    delimiters: str | list[str] = field(default_factory=lambda: [",", ";", "\t"])
+
+    def detect_with_delimiter(self, buffer: TextIO, delimiter: str) -> int:
+        """Count how many consecutive initial fieldless rows we have given specific delimiter."""
 
         reader = csv.reader(
-            islice(self.buffer, self.n_rows),
-            delimiter=",",
+            islice(buffer, self.n_rows),
+            delimiter=delimiter,
             quotechar='"',
             quoting=csv.QUOTE_MINIMAL,
             doublequote=True,
@@ -102,8 +123,24 @@ class Fieldless(PreambleDetector):
 
         return 0
 
+    def detect(self, buffer: TextIO) -> int:
+        """Count how many consecutive initial fieldless rows we have given potential delimiters."""
+
+        cursor = buffer.tell()
+        delimiters = [self.delimiters] if isinstance(self.delimiters, str) else self.delimiters
+
+        for delimiter in delimiters:
+            buffer.seek(cursor)
+            skiprows = self.detect_with_delimiter(buffer, delimiter)
+
+            if skiprows:
+                return skiprows
+
+        return 0
+
 
 @Preambles.register
+@dataclass
 class GoogleAds(Fieldless):
     """In GoogleAds CSVs the garbage lines don't contain the separator (comma or tab).
 
@@ -114,14 +151,15 @@ class GoogleAds(Fieldless):
     GoogleAds also seems to include two "totals" rows at the end, which we exclude here.
     """
 
-    def detect(self) -> int:
+    def detect(self, buffer: TextIO) -> int:
 
-        skip = super().detect()
+        cursor = buffer.tell()
+        skip = super().detect(buffer)
 
         if skip:
 
-            self.buffer.seek(self.cursor)
-            rows = [row.strip() for row in islice(self.buffer, self.n_rows)]
+            buffer.seek(cursor)
+            rows = [row.strip() for row in islice(buffer, self.n_rows)]
 
             is_report = any("informe de" in row.lower() for row in rows[0:skip])
             has_campaign_col = any("Campaña" in col for col in rows[skip].split(","))

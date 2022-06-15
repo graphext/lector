@@ -52,7 +52,7 @@ GOOGLEADS_PREAMBLES = [
 def test_brandwatch(preamble, data):
     preamble, skip_n_exp = preamble
     csv = preamble + "\n" + data.draw(csv_strat(header=3))
-    skip_n_det = Brandwatch(io.StringIO(csv)).detect()
+    skip_n_det = Brandwatch().detect(io.StringIO(csv))
     assert equal(skip_n_exp, skip_n_det)
 
 
@@ -61,7 +61,7 @@ def test_brandwatch(preamble, data):
 def test_fieldless(preamble, data):
     preamble, skip_n_exp = preamble
     csv = preamble + "\n" + data.draw(csv_strat(header=2))
-    skip_n_det = Fieldless(io.StringIO(csv)).detect()
+    skip_n_det = Fieldless().detect(io.StringIO(csv))
     assert equal(skip_n_exp, skip_n_det)
 
 
@@ -70,7 +70,7 @@ def test_fieldless(preamble, data):
 def test_googleads(preamble, data):
     preamble, skip_n_exp = preamble
     csv = preamble + "\n" + data.draw(csv_strat(header=2))
-    skip_n_det = GoogleAds(io.StringIO(csv)).detect()
+    skip_n_det = GoogleAds().detect(io.StringIO(csv))
     assert equal(skip_n_exp, skip_n_det)
 
 

@@ -53,6 +53,14 @@ def codecs_equal(c1, c2):
     return c1 in equivalent and c2 in equivalent
 
 
+def codecs_compatible(c1, c2, encoded, n_err_max=0):
+    """Check if c1 and c2 are equivalent, or otherwise that c2 can decode string without error."""
+    if codecs_equal(c1, c2):
+        return True
+
+    return encoded.decode(c2, errors="replace").count(CODEC_ERR) <= n_err_max
+
+
 @pytest.mark.parametrize("codec", CODECS)
 def test_simple_roundtrip(codec):
     """Test correct detection if string can be encoded given codec."""

@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import codecs
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from re import Pattern
 from typing import BinaryIO, Literal
 
 import cchardet as cdet
@@ -29,7 +27,7 @@ ERROR_THRESHOLD: float = 0.05
 CONFIDENCE_THRESHOLD: float = 0.6
 """Minimum level of confidence to accept an encoding automatically detected by cchardet."""
 
-RE_ERR_CHAR: Pattern = re.compile(r"\ufffd")
+CODEC_ERR_CHAR = "�"
 """Character representing non-codable bytes."""
 
 
@@ -44,7 +42,7 @@ def detect_bom(bs: bytes):
 
 def prop_encoding_errors(bs: bytes, encoding: str) -> float:
     string = bytes.decode(bs, encoding, errors="replace")
-    n_err = len(RE_ERR_CHAR.findall(string))
+    n_err = string.count(CODEC_ERR_CHAR)
     return n_err / len(string)
 
 
