@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import csv
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from itertools import islice
@@ -10,18 +9,12 @@ from typing import Iterable, TextIO
 
 from ..log import LOG
 
-N_ROWS_DFAULT: int = 100
-
-QUOTE: str = '"'
-
-CONSECUTIVE_QUOTES = re.compile(r'"+')
-
 
 @dataclass
 class PreambleDetector(ABC):
     """Base class for detecting preambles (initial junk) in a CSV buffer."""
 
-    n_rows: int = N_ROWS_DFAULT
+    n_rows: int = 100
 
     @abstractmethod
     def detect(self, buffer: TextIO) -> int:
