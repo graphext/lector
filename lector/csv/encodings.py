@@ -15,17 +15,9 @@ BOMS: dict[str, tuple[Literal, ...]] = {
 }
 """Map BOM (Byte-order mark) to encoding."""
 
-N_BYTES_MAX: int = int(1e7)  # 10 MB
-"""By default use this many bytes to detect encoding."""
 
 MAX_INT32: int = 2_147_483_647
 """Cannot read more than this number of bytes at once to detect encoding."""
-
-ERROR_THRESHOLD: float = 0.05
-"""A greater proportion of decoding errors than this will be considered a failed encoding."""
-
-CONFIDENCE_THRESHOLD: float = 0.6
-"""Minimum level of confidence to accept an encoding automatically detected by cchardet."""
 
 CODEC_ERR_CHAR = "�"
 """Character representing non-codable bytes."""
@@ -40,7 +32,8 @@ def detect_bom(bs: bytes):
     return None
 
 
-def prop_encoding_errors(bs: bytes, encoding: str) -> float:
+def prop_decoding_errors(bs: bytes, encoding: str) -> float:
+    """The proportion of characters that couldn't be decoded correctly."""
     string = bytes.decode(bs, encoding, errors="replace")
     n_err = string.count(CODEC_ERR_CHAR)
     return n_err / len(string)
@@ -48,6 +41,8 @@ def prop_encoding_errors(bs: bytes, encoding: str) -> float:
 
 @dataclass
 class EncodingDetector(ABC):
+    """Base class specifying interface for all encoding detetors."""
+
     @abstractmethod
     def detect(self, buffer: BinaryIO) -> str:
         """Implement me."""
@@ -55,10 +50,14 @@ class EncodingDetector(ABC):
 
 @dataclass
 class Chardet(EncodingDetector):
+    """An encoding detector using cchardet if the default utf-8 generates too many errors."""
 
-    n_bytes: int = N_BYTES_MAX
-    error_threshold: float = ERROR_THRESHOLD
-    confidence_threshold: float = CONFIDENCE_THRESHOLD
+    n_bytes: int = int(1e7)  # 10 MB
+    """Use this many bytes to detect encoding."""
+    error_threshold: float = 0.05
+    """A greater proportion of decoding errors than this will be considered a failed encoding."""
+    confidence_threshold: float = 0.6
+    """Minimum level of confidence to accept an encoding automatically detected by cchardet."""
 
     def detect(self, buffer: BinaryIO) -> str:
         """Somewhat 'opinionated' encoding detection.
@@ -72,7 +71,7 @@ class Chardet(EncodingDetector):
         if bom_encoding:
             return bom_encoding
 
-        if prop_encoding_errors(head, "utf-8") <= self.error_threshold:
+        if prop_decoding_errors(head, "utf-8") <= self.error_threshold:
             return "utf-8"
 
         detected = cdet.detect(head)

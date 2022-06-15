@@ -1,17 +1,17 @@
 """Detectors of CSV dialects (separator, quoting etc.).
 
 Note that python.csv is not even internally consistent. E.g. although the dialect used to produce a
-CSV may specify "\n" as the line terminator, the python sniffer is hard-coded to return "\r\n"
-(it doesn't actually support detecting it). It's own reader (and others hopefully) deal internally
-with different line breaks, but it means one cannot compare a dialect used to generate a CSV and
-a dialect created by sniffing the same (quoting is equally hard-coded to QUOTE_MINIMAL).
+CSV may specify ``\\n`` as the line terminator, the python sniffer is hard-coded to return
+``\\r\\n`` (it doesn't actually support detecting it). It's own reader (and others hopefully) deal
+internally with different line breaks, but it means one cannot compare a dialect used to generate a
+CSV and a dialect created by sniffing the same (quoting is equally hard-coded to ``QUOTE_MINIMAL``).
 
 Python quoting levels:
 
-- QUOTE_ALL: 1
-- QUOTE_MINIMAL: 0
-- QUOTE_NONE: 3
-- QUOTE_NONNUMERIC: 2
+- ``QUOTE_ALL``: 1
+- ``QUOTE_MINIMAL``: 0
+- ``QUOTE_NONE``: 3
+- ``QUOTE_NONNUMERIC``: 2
 
 """
 from __future__ import annotations
@@ -158,6 +158,7 @@ if CLEVER_CSV:
 
     @dataclass
     class CleverCSV(DialectDetector):
+        """A more advanced dialect detector using CleverCsv."""
 
         num_chars: int = int(1e6)
         skip: bool = True
