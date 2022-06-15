@@ -129,7 +129,7 @@ def map_values(arr: Array, map: dict, unknown: str = "keep") -> Array:
     return pa.array(values, type=arr.type)
 
 
-def schema_diff(s1: Schema, s2: Schema) -> dict[str : tuple[DataType, DataType]]:
+def schema_diff(s1: Schema, s2: Schema) -> dict[str, tuple[DataType, DataType]]:
     """Check differences in schema's column types."""
     diff = {}
 

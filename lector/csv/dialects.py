@@ -110,7 +110,7 @@ class PySniffer(DialectDetector):
     n_rows: int = N_ROWS_DFAULT
     log: bool = False
 
-    def detect(self, buffer: TextIO):
+    def detect(self, buffer: TextIO) -> Dialect:
         """Detect a dialect we can read(!) a CSV with using the python sniffer.
 
         Note that the sniffer is not reliable for detecting quoting, quotechar etc., but reasonable
@@ -164,7 +164,7 @@ if CLEVER_CSV:
         method: str = "normal"
         verbose: bool = False
 
-        def detect(self, buffer: TextIO):
+        def detect(self, buffer: TextIO) -> Dialect:
             text = buffer.read(self.num_chars)
             dialect = ccsv.Detector().detect(
                 text, verbose=self.verbose, method=self.method, skip=self.skip

@@ -7,7 +7,6 @@ import pyarrow.csv as pacsv
 from pyarrow import DataType
 from pyarrow.csv import InvalidRow
 
-from ..log import LOG, dict_view, schema_view
 from ..utils import MISSING_STRINGS, ensure_type
 from .abc import EmptyFileError, Format, Reader
 
@@ -57,9 +56,6 @@ class ArrowReader(Reader):
 
         config = self.configure(self.format)
 
-        if self.log:
-            LOG.print(dict_view(config, title="Detected CSV format"))
-
         ro = config["read_options"]
         po = config["parse_options"]
         co = config["convert_options"]
@@ -104,8 +100,5 @@ class ArrowReader(Reader):
                 raise EmptyFileError(msg)
 
             raise
-
-        if self.log:
-            LOG.print(schema_view(tbl.schema, title="Parsed table schema"))
 
         return tbl

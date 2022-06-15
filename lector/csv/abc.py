@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any, TextIO, Union
 
+from ..log import LOG, dict_view
 from . import dialects, encodings
 from .dialects import Dialect, DialectDetector
 from .encodings import EncodingDetector
@@ -107,6 +108,7 @@ class Reader(ABC):
 
     def analyze(self):
         """Infer all parameters required for reading a csv file."""
+
         self.buffer = self.decode(self.fp)
         self.buffer.seek(0)
 
@@ -129,6 +131,9 @@ class Reader(ABC):
             dialect=self.dialect,
             columns=self.columns,
         )
+
+        if self.log:
+            LOG.print(dict_view(self.format.__dict__, title="Detected Format"))
 
     @abstractmethod
     def parse(self, *args, **kwds) -> Any:

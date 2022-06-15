@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 
 from .csv import ArrowReader
-from .log import LOG, schema_view
+from .log import LOG, schema_view, table_view
 from .types import Autocast
 
 CLI = typer.Typer()
@@ -23,4 +23,5 @@ def read(
     if autocast:
         tbl = Autocast().cast(tbl)
 
-    LOG.print(schema_view(tbl.schema, title="Cast table schema"))
+    LOG.print(table_view(tbl, title="Final table"))
+    LOG.print(schema_view(tbl.schema, title="Final table schema"))

@@ -71,9 +71,10 @@ class CastStrategy(ABC):
                 field = pa.field(name, type=result.type, metadata=meta)
                 table = table.set_column(i, field, result)
 
-        if self.log and not schema.equals(table.schema):
+        if self.log:
             diff = schema_diff(schema, table.schema)
-            LOG.print(schema_diff_view(diff, title="Autocast type changes"))
+            if diff:
+                LOG.print(schema_diff_view(diff, title="Changed types"))
 
         return table
 
