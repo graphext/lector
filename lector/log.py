@@ -164,7 +164,7 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
     rows = sample.to_pylist()
     ellipses = len(rows) < tbl.num_rows
 
-    def view(x):
+    def value_repr(x):
         if x is None:
             return None
         if x == "...":
@@ -172,19 +172,35 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
         return Pretty(x, max_length=max_col_width, max_string=max_col_width)
 
     for i, row in enumerate(rows):
-        row = [view(x) for x in row.values()]
+        row = [value_repr(x) for x in row.values()]
         end_section = False if ellipses else i == len(rows) - 1
         table.add_row(*row, end_section=end_section)
 
     if ellipses:
         table.add_row(*["..."] * len(rows[0]), end_section=True)
 
-    types = [type_view(field.type) if field.name != "..." else "" for field in sample.schema]
-    nulls = [
-        f"{sample.column(column).null_count} nulls" if column != "..." else ""
-        for column in sample.column_names
-    ]
-    table.add_row(*types)
+    def type_repr(table, column):
+        if column == "...":
+            return ""
+
+        style = "italic yellow3"
+        type_ = table.schema.field(column).type
+        return Text.from_markup(f"[{style}]{type_view(type_)}[/]")
+
+    def null_repr(table, column):
+        if column == "...":
+            return ""
+
+        style = "italic"
+        n_nulls = table.column(column).null_count
+        if n_nulls:
+            return Text.from_markup(f"[{style} bold]nulls {n_nulls}[/]")
+        else:
+            return Text.from_markup(f"[{style}]nulls 0[/]")
+
+    types = [type_repr(sample, column) for column in sample.column_names]
+    nulls = [null_repr(sample, column) for column in sample.column_names]
     table.add_row(*nulls)
+    table.add_row(*types)
 
     return table
