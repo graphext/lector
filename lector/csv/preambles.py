@@ -1,4 +1,10 @@
-"""Detectors of preambles in CSV files."""
+"""Detectors of preambles in CSV files.
+
+This is generally a chicken-and-egg-type situation. Do detect generic preambles robustly and
+efficiently, it would really help to know the CSV dialect, or at least the delimiter. But to detect
+the dialect/delimiter correctly, we need to ignore/(skip) the preamble. Detectors may therefore
+rely on (somtimes) overly simplistic heuristics implicitly assuming a certain dialect.
+"""
 from __future__ import annotations
 
 import csv
@@ -90,10 +96,10 @@ class Brandwatch(PreambleDetector):
 class Fieldless(PreambleDetector):
     """Detects initial rows that don't contain any delimited fields.
 
-    Tries parsing buffer using Python's built-in csv functionality, assuming different potential
-    delimiter characters. If given a specific delimiter the parser detects N initial lines
-    containing a single field only, followed by at least one line containing multiple fields,
-    then N is the number of rows to skip.
+    Tries parsing buffer using Python's built-in csv functionality, assuming as delimiter the most
+    frequent character amongst those configured via ``delimiters``. Given this delimiter, the parser
+    detects N initial lines containing a single field only, followed by at least one line containing
+    multiple fields. N is then the number of rows to skip.
     """
 
     delimiters: str | list[str] = field(default_factory=lambda: [",", ";", "\t"])
@@ -117,19 +123,17 @@ class Fieldless(PreambleDetector):
         return 0
 
     def detect(self, buffer: TextIO) -> int:
-        """Count how many consecutive initial fieldless rows we have given potential delimiters."""
+        """Count consecutive initial fieldless rows given the most frequent delimiter."""
 
         cursor = buffer.tell()
         delimiters = [self.delimiters] if isinstance(self.delimiters, str) else self.delimiters
 
-        for delimiter in delimiters:
-            buffer.seek(cursor)
-            skiprows = self.detect_with_delimiter(buffer, delimiter)
+        text = "".join(islice(buffer, self.n_rows))
+        counts = {delim: text.count(delim) for delim in delimiters}
+        delimiter = max(counts.items(), key=lambda item: item[1])[0]
 
-            if skiprows:
-                return skiprows
-
-        return 0
+        buffer.seek(cursor)
+        return self.detect_with_delimiter(buffer, delimiter)
 
 
 @Preambles.register
