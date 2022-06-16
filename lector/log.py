@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence, TypeVar
 
+import pyarrow as pa
 import pyarrow.types as pat
 from pyarrow import DataType, Schema
 from pyarrow import Table as PaTable
@@ -12,6 +13,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.progress import Progress, TimeElapsedColumn
 from rich.table import Column, Table
+from rich.text import Text
 
 from .utils import decode_metadata
 
@@ -134,8 +136,14 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
     n_cols_max = 5
     if sample.num_columns > n_cols_max:
         sample = sample.select(range(n_cols_max))
+        rest = pa.array(["..."] * len(sample))
+        sample = sample.append_column(field_="...", column=rest)
 
-    caption = f"{tbl.num_columns} columns, {tbl.num_rows} rows"
+    style = "bold indian_red1"
+    caption = Text.from_markup(
+        f"[{style}]{tbl.num_columns}[/] columns x [{style}]{tbl.num_rows:,}[/] rows"
+    )
+
     table = Table(
         title=title,
         caption=caption,
@@ -156,16 +164,26 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
     rows = sample.to_pylist()
     ellipses = len(rows) < tbl.num_rows
 
+    def view(x):
+        if x is None:
+            return None
+        if x == "...":
+            return x
+        return Pretty(x, max_length=max_col_width, max_string=max_col_width)
+
     for i, row in enumerate(rows):
-        row = [Pretty(x, max_length=max_col_width, max_string=max_col_width) for x in row.values()]
+        row = [view(x) for x in row.values()]
         end_section = False if ellipses else i == len(rows) - 1
         table.add_row(*row, end_section=end_section)
 
     if ellipses:
         table.add_row(*["..."] * len(rows[0]), end_section=True)
 
-    types = [type_view(field.type) for field in sample.schema]
-    nulls = [f"{column.null_count} nulls" for column in sample.columns]
+    types = [type_view(field.type) if field.name != "..." else "" for field in sample.schema]
+    nulls = [
+        f"{sample.column(column).null_count} nulls" if column != "..." else ""
+        for column in sample.column_names
+    ]
     table.add_row(*types)
     table.add_row(*nulls)
 
