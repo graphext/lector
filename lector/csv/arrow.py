@@ -101,4 +101,8 @@ class ArrowReader(Reader):
 
             raise
 
+        # Arrow doesn't (yet?) have support for CSV dialect "skipinitialspace" option
+        # At least do minimal clean up of column names
+        tbl = tbl.rename_columns([name.strip() for name in tbl.column_names])
+
         return tbl
