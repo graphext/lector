@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pyarrow as pa
 import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
@@ -42,6 +43,11 @@ DATE_FORMATS: list[str] = [
 ]
 
 ISO_FORMAT: str = "ISO8601()"
+"""String Arrow recognizes as meaning the ISO format."""
+
+UNIT = "ms"
+"""Note that pandas internal unit is fixed to nanoseconds, and with that resolution it can
+represent a much smaller period of dates only."""
 
 
 def timestamp_formats(tz: bool = True) -> list[str]:
@@ -54,6 +60,7 @@ def timestamp_formats(tz: bool = True) -> list[str]:
 
 
 ALL_FORMATS: list[str] = timestamp_formats()
+"""All formats tried by default if None is explicitly provided when converting."""
 
 
 def proportion_trailing_decimals(arr: Array) -> float:
@@ -81,7 +88,7 @@ def find_format(ts: TimestampScalar) -> str | None:
 def maybe_parse_known_timestamps(
     arr: Array,
     format: str,
-    unit: str = "ms",
+    unit: str = UNIT,
     threshold: float = 1.0,
 ) -> Array | None:
     """Helper for parsing with known format and no fractional seconds."""
@@ -99,7 +106,7 @@ def maybe_parse_known_timestamps(
 def maybe_parse_timestamps(
     arr: Array,
     format: str | None = None,
-    unit: str = "ms",
+    unit: str = UNIT,
     threshold: float = 1.0,
     return_format: bool = False,
 ) -> Array | None:
@@ -138,9 +145,19 @@ def maybe_parse_timestamps(
 class Timestamp(Converter):
 
     format: str | None = None
-    unit: str = "ms"
+    """When None, default formats are tried in order."""
+    unit: str = UNIT
+    """Resolution the timestamps are stored with internally."""
+    convert_temporal: bool = True
+    """Whether time/date-only arrays should be converted to timestamps."""
 
     def convert(self, array: Array) -> Conversion | None:
+
+        if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
+            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False))
+
+        if pat.is_timestamp(array.type) and array.type.unit != self.unit:
+            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False))
 
         if not pat.is_string(array.type):
             return None
