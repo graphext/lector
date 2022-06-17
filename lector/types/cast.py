@@ -23,7 +23,7 @@ DEFAULT_CONVERTERS: Config = {
     "list": {"threshold": 0.95},
     "url": {"threshold": 0.8},
     "text": {"threshold": 1.0, "min_unique": 0.1},
-    "category": {"threshold": 0.0},
+    "category": {"threshold": 0.0, "max_cardinality": None},
 }
 
 
@@ -57,17 +57,19 @@ class CastStrategy(ABC):
 
         schema = table.schema
 
-        for i, array in track(enumerate(table), total=table.num_columns, desc="Autocasting"):
-
+        for i, array in track(
+            enumerate(table),
+            total=table.num_columns,
+            desc="Autocasting",
+            disable=not self.log,
+        ):
             name = table.column_names[i]
             conv = self.cast_array(array)
 
             if conv is not None:
-
                 result = conv.result
                 meta = conv.meta or {}
                 meta = encode_metadata(meta) if meta else None
-
                 field = pa.field(name, type=result.type, metadata=meta)
                 table = table.set_column(i, field, result)
 
