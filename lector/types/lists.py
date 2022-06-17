@@ -62,16 +62,18 @@ def maybe_parse_lists(
     arr: Array,
     type: str | DataType | None = None,
     threshold: float = 1.0,
+    allow_empty: bool = True,
 ) -> Array | None:
     """Parse strings into list, optionally with (inferrable) element type."""
 
     if proportion_listlike(arr.drop_null()) < threshold:
         return None
 
-    subpat = RE_LIST_CLEAN
-    content = pac.replace_substring_regex(arr, pattern=subpat, replacement="")
+    content = pac.replace_substring_regex(arr, pattern=RE_LIST_CLEAN, replacement="")
     result = pac.split_pattern(content, ",")
-
+    if allow_empty:
+        was_empty = pac.equal(arr, "[]")
+        result = pac.if_else(was_empty, pa.scalar([], type=pa.list_(pa.string())), result)
     if type is not None:
         return result.cast(pa.list_(ensure_type(type)))
     else:
