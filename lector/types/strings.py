@@ -108,7 +108,7 @@ class Text(Converter):
             return None
 
         if proportion_unique(array) > self.min_unique:
-            if proportion_text(array) > self.threshold:
+            if proportion_text(array) >= self.threshold:
                 return Conversion(array)
 
         return None
