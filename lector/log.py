@@ -54,12 +54,12 @@ def type_view(type: DataType) -> str:
     return str(type)
 
 
-def dict_view(d: dict, title="", expand=False, **kwds) -> Panel:
+def dict_view(d: dict, title: str = "", expand: bool = False, **kwds) -> Panel:
     dv = Pretty(d, **kwds)
     return Panel(dv, expand=expand, title=title, box=box.HEAVY_HEAD)
 
 
-def schema_view(schema: Schema, title=None, padding=1) -> Table:
+def schema_view(schema: Schema, title: str | None = None, padding: int = 1) -> Table:
     """Make a rich view for arrow schema."""
 
     meta = {field.name: decode_metadata(field.metadata or {}) for field in schema}
@@ -82,7 +82,14 @@ def schema_view(schema: Schema, title=None, padding=1) -> Table:
     return Padding(rt, padding)
 
 
-def schema_comparison(s1: Schema, s2: Schema, title=None, padding=1, left="Before", right="After"):
+def schema_comparison(
+    s1: Schema,
+    s2: Schema,
+    title: str | None = None,
+    padding: int = 1,
+    left: str = "Before",
+    right: str = "After",
+):
     meta = {field.name: decode_metadata(field.metadata or {}) for field in s2}
     have_meta = any(meta.values())
 
@@ -110,7 +117,7 @@ def schema_comparison(s1: Schema, s2: Schema, title=None, padding=1, left="Befor
     return Padding(t, padding)
 
 
-def schema_diff_view(diff: dict, title=None, padding=1) -> Table:
+def schema_diff_view(diff: dict, title: str | None = None, padding: int = 1) -> Table:
     """Make a rich view for an arrow schema diff."""
 
     t = Table(title=title, title_justify="left", box=BOX)
@@ -124,24 +131,28 @@ def schema_diff_view(diff: dict, title=None, padding=1) -> Table:
     return Padding(t, padding)
 
 
-def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
+def table_view(
+    tbl: PaTable,
+    title: str | None = None,
+    n_rows_max: int = 10,
+    n_columns_max: int = 6,
+    max_column_width: int = 20,
+) -> Table:
     """Pyarrow table to rich table."""
 
     sample = tbl
 
-    n_rows_max = 10
     if sample.num_rows > n_rows_max:
         sample = sample.slice(0, n_rows_max)
 
-    n_cols_max = 5
-    if sample.num_columns > n_cols_max:
-        sample = sample.select(range(n_cols_max))
+    if sample.num_columns > n_columns_max:
+        sample = sample.select(range(n_columns_max))
         rest = pa.array(["..."] * len(sample))
         sample = sample.append_column(field_="...", column=rest)
 
     style = "bold indian_red1"
     caption = Text.from_markup(
-        f"[{style}]{tbl.num_columns}[/] columns x [{style}]{tbl.num_rows:,}[/] rows"
+        f"[{style}]{tbl.num_rows:,}[/] rows ✕ [{style}]{tbl.num_columns}[/] columns"
     )
 
     table = Table(
@@ -156,7 +167,7 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
         name = field.name
         table.add_column(
             name,
-            max_width=max_col_width,
+            max_width=max_column_width,
             overflow="crop",
             no_wrap=True,
         )
@@ -169,7 +180,7 @@ def table_view(tbl: PaTable, title=None, max_col_width=20) -> Table:
             return None
         if x == "...":
             return x
-        return Pretty(x, max_length=max_col_width, max_string=max_col_width)
+        return Pretty(x, max_length=max_column_width, max_string=max_column_width)
 
     for i, row in enumerate(rows):
         row = [value_repr(x) for x in row.values()]

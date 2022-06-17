@@ -6,7 +6,6 @@
     "editor.autoIndent": "full",
     "editor.formatOnSave": false,
     "editor.formatOnPaste": false,
-    "editor.rulers": [100],
     // "workbench.colorCustomizations": {
     //     "editorRuler.foreground": "#4093ff"
     // },
