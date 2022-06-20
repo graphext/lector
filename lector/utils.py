@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from collections import namedtuple
+from time import perf_counter
 from typing import Union
 
 import pyarrow as pa
@@ -50,6 +51,9 @@ MISSING_STRINGS: set[str] = {
     "NULL",
     "Null",
     "null",
+    # Would expect this to happen automatically, but not the case
+    # (at least when Arrow reads CSV with types="string")
+    "",
 }
 """Extension of pandas and arrow default missing values."""
 
@@ -90,6 +94,11 @@ def proportion_unique(arr: Array) -> float:
 
 
 def proportion_trueish(arr: Array) -> float:
+
+    # if len(arr) == 0:
+    #     # Still means we had no trueish values
+    #     return 0
+
     n_trueish = pac.sum(arr).as_py()
     return n_trueish / len(arr)
 
@@ -101,6 +110,12 @@ def proportion_equal(arr1: Array, arr2: Array, ignore_nulls=True) -> float:
         equal = equal.drop_null()
 
     return proportion_trueish(equal)
+
+
+def empty_to_null(arr: Array) -> Array:
+    """Convert empty strings to null values."""
+    is_empty = pac.equal(arr, "")
+    return pac.if_else(is_empty, None, arr)
 
 
 def sorted_value_counts(arr: Array, order: str = "descending", top_n: int | None = None) -> Array:
@@ -149,3 +164,41 @@ def encode_metadata(d: dict):
 def decode_metadata(d: dict):
     """Decode Arrow metadata to dict."""
     return {k.decode("utf-8"): json.loads(v.decode("utf-8")) for k, v in d.items()}
+
+
+class Timer:
+    def __enter__(self):
+        self.start = perf_counter()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.end = perf_counter()
+        self.elapsed = self.end - self.start
+
+
+# def test_numeric_predicates():
+#     """Check which number representations can be recognized/converted in Python/Arrow.
+
+#     It seems trivial, but the nomenclature of string->numeric predicates, i.e. of identifying
+#     strings as representing specific types of numbers is rather counter-intuitive:
+
+#     - "decimal" doesn't refer to proper decimal numbers (i.e. including fractions), but to
+#       pure and positive(!) integers only. In both Python and Arrow.
+#     - "digit" in Python consists of decimals plus subscript and superscript characters.
+#       But not in Arrow, where there doesn't seem to be a difference between decimal and digit.
+#     - "numeric" in both Python and Arrow includes sub/superscripts as well as "vulgar"
+#       fractions, special numeral characters etc.
+
+#     In other words, none can be used to check for either conversion to integers nor float, as
+#     none supports indication of sign (+/-), nor decimals.
+#     """
+#     ns = ["123", "1.23", "1,123.45", "²", "⅓"]
+#     for n in ns:
+#         print(n)
+#         print("Python:", n.isdecimal(), n.isdigit(), n.isnumeric())
+#         print("Arrow:", pac.utf8_is_decimal(n), pac.utf8_is_digit(n), pac.utf8_is_numeric(n))
+#         try:
+#             pa.scalar(n, pa.string()).cast(pa.float64())
+#             print("Casteable to number(float).")
+#         except Exception:
+#             print("Cannot be cast to number!")
