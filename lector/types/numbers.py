@@ -181,7 +181,6 @@ class Number(Converter):
             )
 
             if result is None:
-                not_int = True
                 result = maybe_parse_floats(
                     array,
                     threshold=self.threshold,
@@ -191,16 +190,7 @@ class Number(Converter):
             if result is None:
                 return None
 
-            try:
-                downcast = Downcast().convert(result)
-            except Exception as exc:
-                print(exc)
-                print(f"{type(array)} - {array.type} ({len(array)})")
-                print(array)
-                print(f"{type(result)} - {result.type} ({len(result)})")
-                print(result)
-                print(f"{not_int=}")
-                raise
+            downcast = Downcast().convert(result)
             return downcast if downcast is not None else Conversion(result)
 
         return Downcast().convert(array)

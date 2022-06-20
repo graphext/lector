@@ -72,7 +72,7 @@ class CastStrategy(ABC):
             disable=not self.log,
         ):
             name = table.column_names[i]
-            LOG.print(f"Analyzing column '{name}'...")
+            # LOG.print(f"Analyzing column '{name}'...")
             conv = self.cast_array(array)
 
             if conv is not None:
@@ -112,7 +112,7 @@ class Autocast(CastStrategy):
     def cast_array(self, array: Array) -> Conversion:
 
         for converter in self.converters:
-            LOG.print(f"  with converter '{converter}'")
+            # LOG.print(f"  with converter '{converter}'")
             sample = array.drop_null().slice(length=self.n_samples)
             if len(sample) > 0 and converter.convert(sample):
                 if result := converter.convert(array):
