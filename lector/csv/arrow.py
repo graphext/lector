@@ -7,6 +7,7 @@ import pyarrow.csv as pacsv
 from pyarrow import DataType
 from pyarrow.csv import InvalidRow
 
+from ..log import LOG
 from ..utils import MISSING_STRINGS, ensure_type
 from .abc import EmptyFileError, Format, Reader
 
@@ -21,7 +22,7 @@ class ArrowReader(Reader):
         if row.text and len(row.text) > 100:
             row = row._replace(text=row.text[:100])
 
-        # print(f"Skipping row {row}")
+        LOG.print(f"Skipping row {row}")
         return "skip"
 
     @classmethod
