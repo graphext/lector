@@ -50,13 +50,16 @@ def type_view(type: DataType) -> str:
     if pat.is_list(type):
         return f"list<{type.value_type}>"
     if pat.is_dictionary(type):
-        return f"dict<{type.value_type}, {type.ordered}>"
+        if type.ordered:
+            return f"dict<{type.value_type}, ordered>"
+        else:
+            return f"dict<{type.value_type}>"
     return str(type)
 
 
-def dict_view(d: dict, title: str = "", expand: bool = False, **kwds) -> Panel:
+def dict_view(d: dict, title: str = "", expand: bool = False, width=None, **kwds) -> Panel:
     dv = Pretty(d, **kwds)
-    return Panel(dv, expand=expand, title=title, box=box.HEAVY_HEAD)
+    return Panel(dv, expand=expand, title=title, width=width, box=box.HEAVY_HEAD)
 
 
 def schema_view(schema: Schema, title: str | None = None, padding: int = 1) -> Table:
