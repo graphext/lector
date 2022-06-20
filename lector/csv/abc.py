@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any, TextIO, Union
 
+from rich.table import Table as RichTable
+
 from ..log import LOG, dict_view
 from . import dialects, encodings
 from .dialects import Dialect, DialectDetector
@@ -39,6 +41,13 @@ class Format:
     preamble: int | None = 0
     dialect: Dialect | None = field(default_factory=lambda: Dialect())
     columns: list[str] | None = None
+
+    def __rich__(self) -> RichTable:
+        return dict_view(
+            {k: v for k, v in self.__dict__.items() if k != "columns"},
+            title="CSV Format",
+            width=120,
+        )
 
 
 class Reader(ABC):
@@ -133,7 +142,7 @@ class Reader(ABC):
         )
 
         if self.log:
-            LOG.print(dict_view(self.format.__dict__, title="Detected Format"))
+            LOG.print(self.format)
 
     @abstractmethod
     def parse(self, *args, **kwds) -> Any:
