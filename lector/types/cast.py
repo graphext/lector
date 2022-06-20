@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Dict, Iterable, Union
 
 import pyarrow as pa
@@ -18,11 +19,11 @@ Converters = Union[Config, Iterable[Converter], None]
 """Accepted argument type where converters are expected."""
 
 DEFAULT_CONVERTERS: Config = {
-    "number": {"threshold": 1.0},
-    "timestamp": {"threshold": 1.0},
-    "list": {"threshold": 0.95},
+    "number": {"threshold": 0.95, "allow_unsigned_int": False, "decimal": "."},
     "url": {"threshold": 0.8},
     "text": {"threshold": 1.0, "min_unique": 0.1},
+    "list": {"threshold": 0.95},
+    "timestamp": {"threshold": 1.0},
     "category": {"threshold": 0.0, "max_cardinality": None},
 }
 
@@ -41,12 +42,19 @@ def ensure_converters(converters: Converters = None) -> list[Converter]:
     raise ValueError(f"Object cannot be made into type converters: {converters}")
 
 
+@dataclass
 class CastStrategy(ABC):
     """Base class for autocasting implementations."""
 
-    def __init__(self, converters: Converters = None, log: bool = True) -> None:
-        self.converters = ensure_converters(converters)
-        self.log = log
+    converters: Converters | None = None
+    log: bool = True
+
+    def __post_init__(self):
+        self.converters = ensure_converters(self.converters)
+
+    # def __init__(self, converters: Converters = None, log: bool = True) -> None:
+    #     self.converters = ensure_converters(converters)
+    #     self.log = log
 
     @abstractmethod
     def cast_array(self, array: Array) -> Conversion:
@@ -64,6 +72,7 @@ class CastStrategy(ABC):
             disable=not self.log,
         ):
             name = table.column_names[i]
+            LOG.print(f"Analyzing column '{name}'...")
             conv = self.cast_array(array)
 
             if conv is not None:
@@ -90,12 +99,23 @@ class CastStrategy(ABC):
         raise ValueError(f"Can only cast arrays or tables, got {type(data)}!")
 
 
+@dataclass
 class Autocast(CastStrategy):
-    """Simple cast trying each registered type in order."""
+    """Simple cast trying each registered type in order.
+
+    As a little performance optimization (having a huge effect on execution time),
+    types are first tested on a sample for fast rejection of non-matching types.
+    """
+
+    n_samples: int = 100
 
     def cast_array(self, array: Array) -> Conversion:
+
         for converter in self.converters:
-            if result := converter.convert(array):
-                return result
+            LOG.print(f"  with converter '{converter}'")
+            sample = array.drop_null().slice(length=self.n_samples)
+            if len(sample) > 0 and converter.convert(sample):
+                if result := converter.convert(array):
+                    return result
 
         return None
