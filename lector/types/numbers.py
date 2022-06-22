@@ -2,6 +2,7 @@
 
 Note: Arrow uses Google's RE2 to implement regex functionality:
 https://github.com/google/re2/wiki/Syntax
+
 """
 from __future__ import annotations
 
@@ -97,13 +98,14 @@ def maybe_parse_floats(arr: Array, threshold: float = 0.5, decimal: str = ".") -
 
     TODO:
 
-    - try to fold the empty string case into the regex directly to avoid another pass\
+    - try to fold the empty string case into the regex directly to avoid another pass
       over the data
 
     """
     thousands = "," if decimal == "." else "."
     pattern = clean_float_pattern(thousands)
     clean = pac.replace_substring_regex(arr, pattern=pattern, replacement="")
+    clean = pac.utf8_lower(clean)  # Arrow doesn't recognize upper case exponential ("1.03481E-11")
 
     is_float = pac.match_substring_regex(clean, pattern=RE_IS_FLOAT)
     if proportion_trueish(is_float) < threshold:
