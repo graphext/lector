@@ -40,3 +40,12 @@ ipython kernel install --name [myenv] --user
 ```
 
 Following this, start jupyter with `jupyter notebook` and it should let you select the kernel containing your lector installation.
+
+## ToDo
+
+## Parallelize type inference
+
+Good test case:
+
+- lilly_bc2_random_cl_1M.csv: 1k columns of ints (2GB on disk) take 176 sec, and uses only a small fraction of 1 CPU.
+- midyear_population_age_country_code.csv

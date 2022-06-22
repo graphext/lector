@@ -22,7 +22,7 @@ DEFAULT_CONVERTERS: Config = {
     "number": {"threshold": 0.95, "allow_unsigned_int": False, "decimal": "."},
     "list": {"threshold": 0.95},
     "timestamp": {"threshold": 0.95},
-    "text": {"threshold": 0.95, "min_unique": 0.1},
+    "text": {"threshold": 0.8, "min_unique": 0.1},
     "url": {"threshold": 0.8},
     "category": {"threshold": 0.0, "max_cardinality": None},
 }
@@ -117,5 +117,11 @@ class Autocast(CastStrategy):
             if len(sample) > 0 and converter.convert(sample):
                 if result := converter.convert(array):
                     return result
+
+        LOG.print("  Got no matching converter, will try casting to categorical (dict).")
+        try:
+            return Conversion(array.dictionary_encode())
+        except Exception:
+            pass
 
         return None

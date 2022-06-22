@@ -1,3 +1,11 @@
+"""Helpers to convert to types that logically remain strings (e.g. categoricals).
+
+TODO:
+
+ - Find a fast way to recognize whitespaces with regex (see is_text)
+ - Try faster early out for text recognition using sufficient_texts()
+
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -22,7 +30,7 @@ TEXT_MIN_SPACES: Number = 2
 TEXT_MIN_LENGTH: Number = 15
 """Strings need to be this long to be considered text."""
 
-TEXT_IGNORE_LISTS: bool = True
+TEXT_REJECT_LISTS: bool = True
 """Whether to count list-like strings as texts."""
 
 TEXT_PROPORTION_THRESHOLD: float = 0.8
@@ -43,14 +51,16 @@ def is_text(
     arr: Array,
     min_spaces: int = TEXT_MIN_SPACES,
     min_length: int = TEXT_MIN_LENGTH,
-    ignore_lists: bool = TEXT_IGNORE_LISTS,
+    reject_lists: bool = TEXT_REJECT_LISTS,
 ) -> bool:
     """Check for natural language-like texts using criteria like lengths, number of spaces."""
     is_long = pac.greater_equal(pac.utf8_length(arr), min_length)
-    has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)
+    # This regex seems to be very slow
+    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)
+    has_spaces = pac.greater_equal(pac.count_substring(arr, pattern=" "), min_spaces)
     textlike = pac.and_(is_long, has_spaces)
 
-    if ignore_lists:
+    if reject_lists:
         listlike = pac.match_substring_regex(arr, RE_LIST_LIKE)
         return pac.and_not(textlike, listlike)
 
@@ -61,11 +71,41 @@ def proportion_text(
     arr: Array,
     min_spaces: int = TEXT_MIN_SPACES,
     min_length: int = TEXT_MIN_LENGTH,
-    ignore_lists: bool = TEXT_IGNORE_LISTS,
+    reject_lists: bool = TEXT_REJECT_LISTS,
 ) -> float:
     """Calculate proportion of natural language-like texts given criteria."""
-    is_txt = is_text(arr.drop_null(), min_spaces, min_length, ignore_lists)
+    is_txt = is_text(arr.drop_null(), min_spaces, min_length, reject_lists)
     return proportion_trueish(is_txt)
+
+
+def sufficient_texts(
+    arr: Array,
+    min_spaces: int = TEXT_MIN_SPACES,
+    min_length: int = TEXT_MIN_LENGTH,
+    reject_lists: bool = TEXT_REJECT_LISTS,
+    threshold: float = 1.0,
+) -> bool:
+    """Check for natural language-like texts using criteria like lengths, number of spaces.
+
+    This is different from above in that for each text condition, we can early out if the
+    condition is not met, without evaluating the remaining conditions. I.e., should be faster.
+    """
+    is_long = pac.greater_equal(pac.utf8_length(arr), min_length)
+    if proportion_trueish(is_long) < threshold:
+        return False
+
+    # This regex seems to be very slow
+    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)
+    has_spaces = pac.greater_equal(pac.count_substring(arr, pattern=" "), min_spaces)
+    if proportion_trueish(has_spaces) < threshold:
+        return False
+
+    if reject_lists:
+        is_listlike = pac.match_substring_regex(arr, RE_LIST_LIKE)
+        if proportion_trueish(is_listlike) > (1.0 - threshold):
+            return False
+
+    return True
 
 
 def proportion_url(arr: Array) -> float:
@@ -109,6 +149,7 @@ class Text(Converter):
 
         if proportion_unique(array) > self.min_unique:
             if proportion_text(array) >= self.threshold:
+                # if sufficient_texts(array, self.threshold):
                 return Conversion(array)
 
         return None
