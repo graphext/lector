@@ -20,10 +20,10 @@ Converters = Union[Config, Iterable[Converter], None]
 
 DEFAULT_CONVERTERS: Config = {
     "number": {"threshold": 0.95, "allow_unsigned_int": False, "decimal": "."},
-    "url": {"threshold": 0.8},
-    "text": {"threshold": 1.0, "min_unique": 0.1},
     "list": {"threshold": 0.95},
-    "timestamp": {"threshold": 1.0},
+    "timestamp": {"threshold": 0.95},
+    "text": {"threshold": 0.95, "min_unique": 0.1},
+    "url": {"threshold": 0.8},
     "category": {"threshold": 0.0, "max_cardinality": None},
 }
 
