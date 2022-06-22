@@ -1,16 +1,28 @@
+"""Helpers to convert timestamp strings or time-like columns to timestamps.
+
+TODO:
+
+- Doesn't maintain fractional seconds (only removes them for strptime parsing)
+
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import pyarrow as pa
 import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
 
-from ..utils import proportion_trueish, proportion_valid
+from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
 
 RE_TRAILING_DECIMALS: str = r"\.(\d+)$"
+"""Strictly trailing, i.e. nothing after the decimals."""
+
+RE_FRATIONAL_SECONDS: str = r"(\.\d+)"
+"""Allows for timezone after fractional seconds, capturing part to be replaced."""
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
@@ -31,6 +43,7 @@ TIMESTAMP_FORMATS: list[str] = [
     "%a %d %b %Y %I:%M:%S %p",
     "%a, %d %b %Y %H:%M:%S",
     "%a, %d %b %Y %I:%M:%S %p",
+    "%a %b %d %H:%M:%S %z %Y",
 ]
 
 DATE_FORMATS: list[str] = [
@@ -38,6 +51,7 @@ DATE_FORMATS: list[str] = [
     "%d-%m-%Y",
     "%Y/%m/%d",
     "%d/%m/%Y",
+    "%m/%d/%Y",
     "%a %d %b %Y",
     "%a, %d %b %Y",
 ]
@@ -70,6 +84,14 @@ def proportion_trailing_decimals(arr: Array) -> float:
     return proportion_trueish(has_frac)
 
 
+def proportion_fractional_seconds(arr: Array) -> float:
+    """Proportion of non-null dates in arr having fractional seconds."""
+    valid = arr.drop_null()
+    has_frac = pac.match_substring_regex(valid, RE_FRATIONAL_SECONDS)
+    return proportion_trueish(has_frac)
+
+
+@lru_cache(maxsize=128, typed=False)
 def find_format(ts: TimestampScalar) -> str | None:
     """Try to find the first format that can parse given date."""
     if pac.is_null(ts).as_py():
@@ -99,8 +121,14 @@ def maybe_parse_known_timestamps(
         except Exception:
             return None
 
+    valid_before = len(arr) - arr.null_count
     result = pac.strptime(arr, format=format, unit=unit, error_is_null=True)
-    return result if proportion_valid(result) >= threshold else None
+    valid_after = len(result) - result.null_count
+
+    if (valid_after / valid_before) < threshold:
+        return None
+
+    return result
 
 
 def maybe_parse_timestamps(
@@ -112,9 +140,12 @@ def maybe_parse_timestamps(
 ) -> Array | None:
     """Parse lists of strings as dates with format inference."""
 
-    if proportion_trailing_decimals(arr) > 0.1:
-        split = pac.split_pattern(arr, ".", max_splits=1, reverse=True)
-        arr = pac.list_element(split, 0)
+    # if proportion_trailing_decimals(arr) > 0.1:
+    #     split = pac.split_pattern(arr, ".", max_splits=1, reverse=True)
+    #     arr = pac.list_element(split, 0)
+
+    if proportion_fractional_seconds(arr) > 0.1:
+        arr = pac.replace_substring_regex(arr, RE_FRATIONAL_SECONDS, "")
 
     if format is None:
         formats = ALL_FORMATS
@@ -135,7 +166,7 @@ def maybe_parse_timestamps(
     for fmt in formats:
         result = maybe_parse_known_timestamps(arr, format=fmt, unit=unit, threshold=threshold)
         if result is not None:
-            return result, fmt if return_format else result
+            return (result, fmt) if return_format else result
 
     return None
 
