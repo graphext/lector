@@ -29,7 +29,24 @@ To test installation you may execute the [pytest](https://docs.pytest.org/) suit
 pytest -v .
 ```
 
+## Documentation
+
+To build docs locally:
+
+``` bash
+(cd docs && make clean html)
+```
+
+And to view them
+
+``` bash
+(cd docs/build/html && python -m http.server)
+```
+
 ## Command line interface
+
+Coming soon...
+
 
 ## Notebook
 
