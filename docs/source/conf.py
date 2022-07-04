@@ -17,6 +17,7 @@ extensions = [
     "sphinx.ext.viewcode",
     # "sphinx_autodoc_typehints",
     "sphinx.ext.autodoc.typehints",
+    "sphinx.ext.todo",
     "autoapi.extension",
 ]
 
