@@ -2,12 +2,12 @@
 
 ## Install
 
-### PyPi
+### From Github
 
 Simply run
 
 ```
-pip install ...
+pip install git+https://github.com/graphext/lector
 ```
 
 ### Development
@@ -43,9 +43,9 @@ Following this, start jupyter with `jupyter notebook` and it should let you sele
 
 ## ToDo
 
-## Parallelize type inference
+### Parallelize type inference
 
-Good test case:
+Good test cases:
 
-- lilly_bc2_random_cl_1M.csv: 1k columns of ints (2GB on disk) take 176 sec, and uses only a small fraction of 1 CPU.
+- l***y_bc2_random_cl_1M.csv: 1k columns of ints (2GB on disk) take 176 sec, and uses only a small fraction of 1 CPU.
 - midyear_population_age_country_code.csv
