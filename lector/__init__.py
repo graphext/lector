@@ -15,3 +15,5 @@ __all__ = [
     "schema_view",
     "table_view",
 ]
+
+__version__ = "0.1.0"
