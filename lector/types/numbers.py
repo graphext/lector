@@ -13,16 +13,16 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array
 
-from ..utils import empty_to_null, min_max, proportion_equal, proportion_trueish, smallest_int_type
+from ..utils import (
+    dtype_name,
+    empty_to_null,
+    min_max,
+    proportion_equal,
+    proportion_trueish,
+    smallest_int_type,
+)
 from .abc import Conversion, Converter, Registry
-
-RE_INT = "^(?P<sign>[+-])?(?P<num>[0-9]+)$"
-"""Capture optional sign and numeric parts in interger strings."""
-
-RE_IS_FLOAT = "^[-]?[0-9]*[.]?[0-9]*(?:[e][+-]?[0-9]+)?$"
-"""Strings matching float representations convertable by Arrow. Allows ints too,
-but those should have been inferred before trying floats.
-"""
+from .regex import RE_INT, RE_IS_FLOAT
 
 
 def clean_float_pattern(thousands: str = ",") -> str:
@@ -176,23 +176,28 @@ class Number(Converter):
     def convert(self, array: Array) -> Conversion | None:
 
         if pat.is_string(array.type):
-            result = maybe_parse_ints(
+
+            converted = maybe_parse_ints(
                 array,
                 threshold=self.threshold,
                 allow_unsigned=self.allow_unsigned_int,
             )
 
-            if result is None:
-                result = maybe_parse_floats(
+            if converted is None:
+                converted = maybe_parse_floats(
                     array,
                     threshold=self.threshold,
                     decimal=self.decimal,
                 )
 
-            if result is None:
-                return None
+            if converted:
+                downcast = Downcast().convert(converted)
+                converted = downcast if downcast is not None else Conversion(converted)
+        else:
+            converted = Downcast().convert(array)
 
-            downcast = Downcast().convert(result)
-            return downcast if downcast is not None else Conversion(result)
+        if converted is None:
+            return None
 
-        return Downcast().convert(array)
+        converted.meta = {"semantic": f"number[{dtype_name(converted.result)}]"}
+        return converted

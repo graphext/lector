@@ -19,7 +19,7 @@ from pyarrow import Array
 from ..log import LOG
 from ..utils import Number, map_values, proportion_trueish, proportion_unique, sorted_value_counts
 from .abc import Conversion, Converter, Registry
-from .lists import RE_LIST_LIKE
+from .regex import RE_LIST_LIKE, RE_URL
 
 MAX_CARDINALITY: Number = 0.1
 """Maximum cardinalty for categoricals (arrow's default is 50 in ConvertOptions)."""
@@ -35,16 +35,6 @@ TEXT_REJECT_LISTS: bool = True
 
 TEXT_PROPORTION_THRESHOLD: float = 0.8
 """Infer text type if a proportion or values greater than this is text-like. """
-
-RE_URL = (
-    r"^(http://www\.|https://www\.|http://|https://)?"  # http:// or https://
-    # r'^(https?://(www\.)?)?'  # http:// or https://
-    r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
-    r"localhost|"  # localhost...
-    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
-    r"(?::\d+)?"  # optional port
-    r"(?:/?|[/?]\S+)$"
-)
 
 
 def is_text(
@@ -114,7 +104,10 @@ def proportion_url(arr: Array) -> float:
     return proportion_trueish(is_url)
 
 
-def maybe_cast_category(arr: Array, max_cardinality: Number = MAX_CARDINALITY) -> Array | None:
+def maybe_cast_category(
+    arr: Array,
+    max_cardinality: Number | None = MAX_CARDINALITY,
+) -> Array | None:
     """Cast to categorical depending on cardinality and whether strings are text-like."""
 
     if max_cardinality is None or max_cardinality == INF:
@@ -147,10 +140,10 @@ class Text(Converter):
         if not pat.is_string(array.type):
             return None
 
-        if proportion_unique(array) > self.min_unique:
+        if proportion_unique(array) >= self.min_unique:
             if proportion_text(array) >= self.threshold:
                 # if sufficient_texts(array, self.threshold):
-                return Conversion(array)
+                return Conversion(array, meta={"semantic": "url"})
 
         return None
 
@@ -176,14 +169,14 @@ class Url(Converter):
 class Category(Converter):
     """Anything could be text, but we can enforce text-likeness and uniqueness."""
 
-    max_cardinality: Number = MAX_CARDINALITY
+    max_cardinality: Number | None = MAX_CARDINALITY
 
     def convert(self, array: Array) -> Conversion | None:
         if not pat.is_string(array.type):
             return None
 
         result = maybe_cast_category(array, self.max_cardinality)
-        return Conversion(result) if result else None
+        return Conversion(result, meta={"semantic": "category"}) if result else None
 
 
 class Sex(Enum):

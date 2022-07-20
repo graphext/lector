@@ -10,6 +10,7 @@ import pyarrow as pa
 from pyarrow import type_for_alias  # noqa: F401
 from pyarrow import Array, DataType, Schema
 from pyarrow import compute as pac
+from pyarrow import types as pat
 from pyarrow.lib import ensure_type  # noqa: F401
 
 Number = Union[int, float]
@@ -74,6 +75,18 @@ def smallest_int_type(vmin: Number, vmax: Number) -> str | None:
     return None
 
 
+def dtype_name(arr: Array):
+    """Return a pandas-compatible type name including extension types where possible."""
+    type = arr.type
+    name = str(type)
+
+    if pat.is_integer(type):
+        if arr.null_count > 0:
+            name = name.replace("i", "I").replace("u", "U")
+
+    return name
+
+
 def min_max(arr: Array, skip_nulls: bool = True) -> tuple[Number, Number]:
     """Wrapper to get minimum and maximum in arrow array as python tuple."""
     mm = pac.min_max(arr, skip_nulls=skip_nulls).as_py()
@@ -88,18 +101,22 @@ def proportion_valid(arr: Array) -> float:
 
 def proportion_unique(arr: Array) -> float:
     """Proportion of non-null values that are unique in array."""
-    n_unique = pac.count_distinct(arr, mode="only_valid").as_py()
     n_valid = len(arr) - arr.null_count
+
+    if n_valid == 0:
+        return 0
+
+    n_unique = pac.count_distinct(arr, mode="only_valid").as_py()
     return n_unique / n_valid
 
 
 def proportion_trueish(arr: Array) -> float:
 
-    # if len(arr) == 0:
-    #     # Still means we had no trueish values
-    #     return 0
+    if len(arr) == 0:
+        # Still means we had no trueish values
+        return 0
 
-    n_trueish = pac.sum(arr).as_py()
+    n_trueish = pac.sum(arr).as_py() or 0  # may return None otherwise, which we consider falsish
     return n_trueish / len(arr)
 
 

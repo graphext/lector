@@ -4,7 +4,8 @@ This is instead or on top of Arrow's built-in inference, which currently doesn't
 list columns, timestamps in non-ISO formats, or semantic types such as URLs, natural language
 text etc.
 """
-from .cast import Autocast
+from .abc import Converter, Registry
+from .cast import Autocast, Cast
 from .lists import List
 from .numbers import Number
 from .strings import Category, Text, Url
@@ -14,6 +15,9 @@ from .timestamps import Timestamp
 
 __all__ = [
     "Autocast",
+    "Cast",
+    "Converter",
+    "Registry",
     "Category",
     "List",
     "Number",

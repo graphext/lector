@@ -11,6 +11,7 @@ from pyarrow import Array, Table
 from ..log import LOG, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
+from .strings import Category
 
 Config = Dict[str, dict]
 """An (ordered) dict of converter class names and corresponding parameters."""
@@ -20,7 +21,7 @@ Converters = Union[Config, Iterable[Converter], None]
 
 DEFAULT_CONVERTERS: Config = {
     "number": {"threshold": 0.95, "allow_unsigned_int": False, "decimal": "."},
-    "list": {"threshold": 0.95},
+    "list": {"threshold": 0.95, "threshold_urls": 0.8},
     "timestamp": {"threshold": 0.95},
     "text": {"threshold": 0.8, "min_unique": 0.1},
     "url": {"threshold": 0.8},
@@ -47,40 +48,33 @@ class CastStrategy(ABC):
     """Base class for autocasting implementations."""
 
     converters: Converters | None = None
+    columns: list[str] | None = None
     log: bool = True
 
     def __post_init__(self):
         self.converters = ensure_converters(self.converters)
 
-    # def __init__(self, converters: Converters = None, log: bool = True) -> None:
-    #     self.converters = ensure_converters(converters)
-    #     self.log = log
-
     @abstractmethod
-    def cast_array(self, array: Array) -> Conversion:
+    def cast_array(self, array: Array, name: str | None = None) -> Conversion:
         """Only need to override this."""
 
     def cast_table(self, table: Table) -> Table:
         """Takes care of updating fields, including metadata etc."""
 
         schema = table.schema
+        columns = self.columns or table.column_names
 
-        for i, array in track(
-            enumerate(table),
-            total=table.num_columns,
-            desc="Autocasting",
-            disable=not self.log,
-        ):
-            name = table.column_names[i]
-            # LOG.print(f"Analyzing column '{name}'...")
-            conv = self.cast_array(array)
+        for name in track(columns, desc="Autocasting", disable=not self.log):
+
+            array = table.column(name)
+            conv = self.cast_array(array, name=name)
 
             if conv is not None:
                 result = conv.result
                 meta = conv.meta or {}
                 meta = encode_metadata(meta) if meta else None
                 field = pa.field(name, type=result.type, metadata=meta)
-                table = table.set_column(i, field, result)
+                table = table.set_column(table.column_names.index(name), field, result)
 
         if self.log:
             diff = schema_diff(schema, table.schema)
@@ -109,7 +103,7 @@ class Autocast(CastStrategy):
 
     n_samples: int = 100
 
-    def cast_array(self, array: Array) -> Conversion:
+    def cast_array(self, array: Array, name: str | None = None) -> Conversion:
 
         for converter in self.converters:
             # LOG.print(f"  with converter '{converter}'")
@@ -118,10 +112,51 @@ class Autocast(CastStrategy):
                 if result := converter.convert(array):
                     return result
 
-        LOG.print("  Got no matching converter, will try casting to categorical (dict).")
-        try:
-            return Conversion(array.dictionary_encode())
-        except Exception:
-            pass
+        if pa.types.is_string(array.type):
+            LOG.print(
+                f"Got no matching converter for string column '{name or ''}'. "
+                "Will try casting to categorical (dict)."
+            )
+            return Category(threshold=0.0, max_cardinality=None).convert(array)
 
         return None
+
+
+@dataclass
+class Cast:
+    """Tried a specific cast for each columns."""
+
+    converters: dict[str, Converter]
+    log: bool = True
+
+    def cast(self, table: Table) -> Table:
+
+        schema = table.schema
+
+        for i, (name, converter) in track(
+            enumerate(self.converters.items()),
+            total=len(self.converters),
+            desc="Explicit casting",
+            disable=not self.log,
+        ):
+            array = table.column(name)
+            conv = converter.convert(array)
+
+            if conv is not None:
+                result = conv.result
+                meta = conv.meta or {}
+                meta = encode_metadata(meta) if meta else None
+                field = pa.field(name, type=result.type, metadata=meta)
+                idx = table.schema.get_field_index(name)
+                table = table.set_column(idx, field, result)
+            else:
+                LOG.print(f"Conversion of columns '{name}' with converter '{converter}' failed!")
+                LOG.print(f"Original column type: {array.type}")
+                LOG.print(f"Original column: {array}")
+
+        if self.log:
+            diff = schema_diff(schema, table.schema)
+            if diff:
+                LOG.print(schema_diff_view(diff, title="Changed types"))
+
+        return table

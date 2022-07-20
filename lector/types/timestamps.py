@@ -17,12 +17,7 @@ from pyarrow import Array, TimestampScalar
 
 from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
-
-RE_TRAILING_DECIMALS: str = r"\.(\d+)$"
-"""Strictly trailing, i.e. nothing after the decimals."""
-
-RE_FRATIONAL_SECONDS: str = r"(\.\d+)"
-"""Allows for timezone after fractional seconds, capturing part to be replaced."""
+from .regex import RE_FRATIONAL_SECONDS, RE_TRAILING_DECIMALS
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
@@ -59,7 +54,7 @@ DATE_FORMATS: list[str] = [
 ISO_FORMAT: str = "ISO8601()"
 """String Arrow recognizes as meaning the ISO format."""
 
-UNIT = "ms"
+UNIT = "ns"
 """Note that pandas internal unit is fixed to nanoseconds, and with that resolution it can
 represent a much smaller period of dates only."""
 
@@ -184,11 +179,13 @@ class Timestamp(Converter):
 
     def convert(self, array: Array) -> Conversion | None:
 
+        meta = {"semantic": "date"}
+
         if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
-            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False))
+            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False), meta=meta)
 
         if pat.is_timestamp(array.type) and array.type.unit != self.unit:
-            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False))
+            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False), meta=meta)
 
         if not pat.is_string(array.type):
             return None
@@ -203,6 +200,7 @@ class Timestamp(Converter):
 
         if result is not None:
             converted, format = result
-            return Conversion(converted, meta={"format": format})
+            meta["format"] = format
+            return Conversion(converted, meta=meta)
 
         return None

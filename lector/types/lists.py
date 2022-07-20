@@ -9,12 +9,8 @@ from pyarrow import Array, DataType
 
 from ..utils import ensure_type, min_max, proportion_trueish, smallest_int_type
 from .abc import Conversion, Converter, Registry
-
-RE_LIST_LIKE: str = r"^[\(\[\|\{<].*[\)\]\|\>}]$"
-"""Lists start and end with parenthesis-like characters."""
-
-RE_LIST_CLEAN: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$|['\"\s]"
-"""Remove all parenthesis-like characters from start and end. Whitespace and quotes too."""
+from .regex import RE_LIST_CLEAN, RE_LIST_LIKE
+from .strings import proportion_url
 
 LIST_TYPES: tuple[str] = (pa.int64(), pa.float64(), pa.timestamp(unit="ms"))
 
@@ -71,13 +67,15 @@ def maybe_parse_lists(
 
     content = pac.replace_substring_regex(arr, pattern=RE_LIST_CLEAN, replacement="")
     result = pac.split_pattern(content, ",")
+
     if allow_empty:
         was_empty = pac.equal(arr, "[]")
         result = pac.if_else(was_empty, pa.scalar([], type=pa.list_(pa.string())), result)
+
     if type is not None:
         return result.cast(pa.list_(ensure_type(type)))
-    else:
-        return maybe_cast_lists(result, types=LIST_TYPES) or result
+
+    return maybe_cast_lists(result, types=LIST_TYPES) or result
 
 
 @dataclass
@@ -85,6 +83,8 @@ def maybe_parse_lists(
 class List(Converter):
 
     type: str | DataType | None = None
+    infer_urls: bool = True
+    threshold_urls: float = 1.0
 
     def convert(self, array: Array) -> Conversion | None:
 
@@ -92,4 +92,22 @@ class List(Converter):
             return None
 
         result = maybe_parse_lists(array, self.type, self.threshold)
-        return Conversion(result) if result else None
+
+        if not result:
+            return None
+
+        vtype = result.type.value_type
+
+        if pat.is_string(vtype):
+            if self.infer_urls and proportion_url(pac.list_flatten(result)) <= self.threshold_urls:
+                semantic = "list[url]"
+            else:
+                semantic = "list[category]"
+        elif pat.is_timestamp(vtype):
+            semantic = "list[date]"
+        elif pat.is_integer(vtype):
+            semantic = "list[number[int64]]"
+        else:
+            semantic = "list[number[float64]]"
+
+        return Conversion(result, meta={"semantic": semantic})
