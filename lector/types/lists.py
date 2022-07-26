@@ -99,7 +99,7 @@ class List(Converter):
         vtype = result.type.value_type
 
         if pat.is_string(vtype):
-            if self.infer_urls and proportion_url(pac.list_flatten(result)) <= self.threshold_urls:
+            if self.infer_urls and proportion_url(pac.list_flatten(result)) >= self.threshold_urls:
                 semantic = "list[url]"
             else:
                 semantic = "list[category]"
