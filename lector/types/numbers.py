@@ -172,6 +172,7 @@ class Number(Converter):
 
     decimal: str = "."
     allow_unsigned_int: bool = False
+    max_int: int | None = None
 
     def convert(self, array: Array) -> Conversion | None:
 
@@ -198,6 +199,10 @@ class Number(Converter):
 
         if converted is None:
             return None
+
+        if pat.is_integer(converted.result.type) and self.max_int is not None:
+            if pac.max(converted.result).as_py() > self.max_int:
+                return None
 
         converted.meta = {"semantic": f"number[{dtype_name(converted.result)}]"}
         return converted
