@@ -8,7 +8,7 @@ from typing import Union
 
 import pyarrow as pa
 from pyarrow import type_for_alias  # noqa: F401
-from pyarrow import Array, DataType, Schema
+from pyarrow import Array, ChunkedArray, DataType, Schema
 from pyarrow import compute as pac
 from pyarrow import types as pat
 from pyarrow.lib import ensure_type  # noqa: F401
@@ -159,6 +159,19 @@ def map_values(arr: Array, map: dict, unknown: str = "keep") -> Array:
         values = [map.get(val, None) for val in values]
 
     return pa.array(values, type=arr.type)
+
+
+def categories(array: Array | ChunkedArray) -> Array:
+    """Returns an array containing categories in input array of dictionary type."""
+
+    if not pat.is_dictionary(array.type):
+        raise TypeError("Must have an array with dictionary type!")
+
+    if isinstance(array, ChunkedArray):
+        array = array.unify_dictionaries()
+        return array.chunk(0).dictionary
+    else:
+        return array.dictionary
 
 
 def schema_diff(s1: Schema, s2: Schema) -> dict[str, tuple[DataType, DataType]]:
