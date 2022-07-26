@@ -105,11 +105,19 @@ class Autocast(CastStrategy):
 
     def cast_array(self, array: Array, name: str | None = None) -> Conversion:
 
+        # if self.log:
+        #     LOG.print(f"Converting column {name or ''}")
+
         for converter in self.converters:
-            # LOG.print(f"  with converter '{converter}'")
+
+            # if self.log:
+            #     LOG.print(f"  with converter '{converter}'")
+
             sample = array.drop_null().slice(length=self.n_samples)
             if len(sample) > 0 and converter.convert(sample):
                 if result := converter.convert(array):
+                    if self.log:
+                        LOG.print(f"Converted column {name or ''} with {converter}")
                     return result
 
         if pa.types.is_string(array.type):

@@ -143,7 +143,7 @@ class Text(Converter):
         if proportion_unique(array) >= self.min_unique:
             if proportion_text(array) >= self.threshold:
                 # if sufficient_texts(array, self.threshold):
-                return Conversion(array, meta={"semantic": "url"})
+                return Conversion(array, meta={"semantic": "text"})
 
         return None
 
