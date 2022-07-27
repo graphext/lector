@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, Union
 
 import pyarrow as pa
-from pyarrow import Array, Table
+from pyarrow import Array, ChunkedArray, Table
 
 from ..log import LOG, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
@@ -83,9 +83,9 @@ class CastStrategy(ABC):
 
         return table
 
-    def cast(self, data: Array | Table) -> Conversion | Table:
+    def cast(self, data: Array | ChunkedArray | Table) -> Conversion | Table:
         """Shouldn't be necessary, but @singledispatchmethod doesn't work with inheritance."""
-        if isinstance(data, Array):
+        if isinstance(data, (Array, ChunkedArray)):
             return self.cast_array(data)
         elif isinstance(data, Table):
             return self.cast_table(data)
@@ -103,7 +103,7 @@ class Autocast(CastStrategy):
 
     n_samples: int = 100
 
-    def cast_array(self, array: Array, name: str | None = None) -> Conversion:
+    def cast_array(self, array: Array | ChunkedArray, name: str | None = None) -> Conversion:
 
         # if self.log:
         #     LOG.print(f"Converting column {name or ''}")
