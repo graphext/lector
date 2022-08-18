@@ -20,7 +20,7 @@ Converters = Union[Config, Iterable[Converter], None]
 """Accepted argument type where converters are expected."""
 
 DEFAULT_CONVERTERS: Config = {
-    "number": {"threshold": 0.95, "allow_unsigned_int": False, "decimal": "."},
+    "number": {"threshold": 0.95, "allow_unsigned_int": True, "decimal": "."},
     "list": {"threshold": 0.95, "threshold_urls": 0.8},
     "timestamp": {"threshold": 0.95},
     "text": {"threshold": 0.8, "min_unique": 0.1},

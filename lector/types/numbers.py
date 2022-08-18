@@ -53,9 +53,10 @@ def maybe_parse_ints(
     Only ``is_valid`` knows which rows matched.
     """
     parsed = pac.extract_regex(arr, RE_INT)
-
     is_int = parsed.is_valid()
-    if proportion_trueish(is_int) < threshold:
+
+    valid_prop = pac.sum(is_int).as_py() / (len(arr) - arr.null_count)
+    if valid_prop < threshold:
         return None
 
     # Get named capture groups by index
@@ -191,7 +192,7 @@ class Number(Converter):
     """Attempts to parse strings into floats or ints followed by downcasting."""
 
     decimal: str = "."
-    allow_unsigned_int: bool = False
+    allow_unsigned_int: bool = True
     max_int: int | None = None
 
     def convert(self, array: Array) -> Conversion | None:

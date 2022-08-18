@@ -16,31 +16,10 @@ For further documentation visit https://lector.readthedocs.io/.
 
 ## Installing
 
-### From Github
-
 While this library is not available yet on pypi, you can easily install it from Github with
 
 ```
 pip install git+https://github.com/graphext/lector
-```
-
-### Development
-
-To install a local copy for development, including all dependencies for test, documentation and code quality, use the following commands:
-
-``` bash
-clone git+https://github.com/graphext/lector
-cd lector
-pip install -v -e ".[dev]"
-pre-commit install
-```
-
-The [pre-commit](https://pre-commit.com/) command will make sure that whenever you try to commit changes to this repo code quality and formatting tools will be executed. This ensures e.g. a common coding style, such that any changes to be commited are functional changes only, not changes due to different personal coding style preferences. This in turn makes it either to collaborate via pull requests etc.
-
-To test installation you may execute the [pytest](https://docs.pytest.org/) suite to make sure everything's setup correctly, e.g.:
-
-``` bash
-pytest -v .
 ```
 
 ## Usage
@@ -53,14 +32,14 @@ Let's assume we receive the following CSV file, containing some initial metadata
 csv = """
 Some metadata
 Some more metadata
-id; category; metric; count; text
+id;category;metric;count;text
 1234982348728374;a;0.1;1;"This is a text."
 ;b;0.12;;"Natural language text is different from categorical data."
 9007199254740993;a;3.14;3;"The Project · Gutenberg » EBook « of Die Fürstin."
 """.encode("ISO-8859-1")
 ```
 
-<detail>
+<details>
 <summary>Pandas</summary>
 
 Trying to read this using `pandas.read_csv(...)` and default arguments only will fail. To find the correct arguments, you'll have to open the CSV in a text editor and manually identify the separator and the initial lines to skip, and then try different encodings until you find one that seems to decode all characters correctly. But even if you then manage to read the CSV, the result may not be what you expected:
@@ -108,9 +87,9 @@ print(df.id.iloc[2])
 
 which is not the value `"9007199254740993"` contained in our CSV file. We cannot cast this column to the correct type anymore either (e.g. int64 or string), because the original value is lost. It is also a sneaky problem, because you may not realize you've got wrong IDs, and may produce totally wrong analyses if you use them down the line for joins etc. The only way to import CSV files like this correctly is to inspect essentially all columns and all rows manually in a text editor, choose the best data type manually, and then provide these types via pandas `dtype` argument. This may be feasible if you work with CSVs only sporadically, but quickly becomes cumbersome otherwise.
 
-</detail>
+</details>
 
-<detail>
+<details>
 <summary>Arrow</summary>
 
 The `arrow` CSV reader faces exactly the same limitations as `pandas`:
@@ -160,7 +139,7 @@ text: [[null,"Natural language text is different from categorical data.","The Pr
 ```
 
 Again, the only way to ensure correctness of the parsed CSV is to not use arrow's built-in type inference, but provide the desired type for each column manually.
-</detail>
+</details>
 
 ### Notebooks
 
@@ -175,6 +154,25 @@ Following this, start jupyter with `jupyter notebook` and it should let you sele
 ### Command line interface
 
 Coming soon...
+
+## Development
+
+To install a local copy for development, including all dependencies for test, documentation and code quality, use the following commands:
+
+``` bash
+clone git+https://github.com/graphext/lector
+cd lector
+pip install -v -e ".[dev]"
+pre-commit install
+```
+
+The [pre-commit](https://pre-commit.com/) command will make sure that whenever you try to commit changes to this repo code quality and formatting tools will be executed. This ensures e.g. a common coding style, such that any changes to be commited are functional changes only, not changes due to different personal coding style preferences. This in turn makes it either to collaborate via pull requests etc.
+
+To test installation you may execute the [pytest](https://docs.pytest.org/) suite to make sure everything's setup correctly, e.g.:
+
+``` bash
+pytest -v .
+```
 
 ## Documentation
 

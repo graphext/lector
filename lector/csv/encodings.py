@@ -54,7 +54,7 @@ class Chardet(EncodingDetector):
 
     n_bytes: int = int(1e7)  # 10 MB
     """Use this many bytes to detect encoding."""
-    error_threshold: float = 0.05
+    error_threshold: float = 0.0
     """A greater proportion of decoding errors than this will be considered a failed encoding."""
     confidence_threshold: float = 0.6
     """Minimum level of confidence to accept an encoding automatically detected by cchardet."""
