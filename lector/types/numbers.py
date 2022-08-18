@@ -68,8 +68,7 @@ def maybe_parse_ints(
         num = pac.cast(num, pa.int64())
         sign = pac.if_else(is_negative, -1, 1)
         return pac.multiply_checked(num, sign)
-    except Exception as exc:
-        print(exc)
+    except Exception:
 
         if allow_unsigned:
             n_negative = pac.sum(is_negative).as_py()

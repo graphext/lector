@@ -33,16 +33,114 @@ csv = """
 Some metadata
 Some more metadata
 id;category;metric;count;text
-1234982348728374;a;0.1;1;"This is a text."
+1234982348728374;a;0.1;1;
 ;b;0.12;;"Natural language text is different from categorical data."
-9007199254740993;a;3.14;3;"The Project · Gutenberg » EBook « of Die Fürstin."
+18446744073709551615;a;3.14;3;"The Project · Gutenberg » EBook « of Die Fürstin."
 """.encode("ISO-8859-1")
 ```
+The recommended way to use `lector` for reading this CSV would be
+
+``` python
+from lector import ArrowReader, Autocast
+
+tbl = ArrowReader(io.BytesIO(csv)).read(types="string")
+tbl = Autocast().cast(tbl)
+print(tbl)
+```
+
+which produces something like the following output:
+
+```
+'Fieldless' matches CSV buffer: detected 3 rows to skip.
+
+ ─────────── CSV Format ────────────
+  {
+      'encoding': 'ISO-8859-1',
+      'preamble': 3,
+      'dialect': Dialect(
+          delimiter=';',
+          quote_char='"',
+          escape_char=None,
+          double_quote=True,
+          skip_initial_space=False,
+          line_terminator='\r\n',
+          quoting=0
+      )
+  }
+ ───────────────────────────────────
+
+pyarrow.Table
+id: uint64
+category: dictionary<values=string, indices=int32, ordered=0>
+metric: double
+count: uint8
+text: string
+----
+id: [[1234982348728374,null,18446744073709551615]]
+category: [  -- dictionary:
+["a","b"]  -- indices:
+[0,1,0]]
+metric: [[0.1,0.12,3.14]]
+count: [[1,null,3]]
+text: [[null,"Natural language text is different from categorical data.","The Project · Gutenberg » EBook « of Die Fürstin."]]
+```
+
+The log provides some feedback about proporties of the CSV that `lector` has detected automatically, namely:
+
+- It has found a _preamble_ pattern named 'Fieldless' that matches the beginning of the CSV file and indicates that the first 3 rows should be skipped (lector has an extensible list of such patterns which are tried in order until a match is found)
+- It has detected the _encoding_ correctly as "ISO-8859-1" (this cannot be guaranteed in all cases, but the CSV will be read always with a fallback encoding, and characters that cannot be decoded will be represented by �)
+- It has correctly detected the CSV dialect (the delimiter used etc.)
+- The encoding, preamble and dialect together are stored in a `Format` object, which holds all the necessary parameters to parse the CSV file correctly with pandas or arrow
+
+Using the detected CSV format, the data is parsed using arrow's `csv.read_csv()`. Note we have indicated to arrow to parse all columns using the `string` type, effectively turning off its internal type inference, and then applied our own inference and casting mechanism. As the table representation indicates, this has resulted in the most appropriate type for each column:
+
+- an unsigned int was necessary for the `id` column
+- the `category` column was automatically converted to the efficient `dictionary` (categorical) type
+- the `count` column uses the smallest integer type necessary
+- the `text` column, containing natural language text, has _not_ been converted to a categortical type, but kept as string values (it is unlikely to benefit from dictionary-encoding)
+
+Note that we could have relied on arrow's internal type inference instead with:
+
+``` python
+ArrowReader(io.BytesIO(csv)).read()
+```
+
+but this would result in less memory-efficient and even erroneous data types (see the pandas and pure arrow comparisons below).
+
+Finally, if you need the CSV table in pandas, lector provides a little helper for correct conversion (again, pure arrow's `to_pandas(...)` isn't smart or flexible enough to use pandas extension dtypes for correct conversion):
+
+``` python
+from lector.utils import as_pd
+
+df = as_pd(tbl)
+print(df)
+print(df.types)
+```
+```
+                     id category  metric  count  \
+0      1234982348728374        a    0.10      1
+1                  <NA>        b    0.12   <NA>
+2  18446744073709551615        a    3.14      3
+
+                                                text
+0                                               <NA>
+1  Natural language text is different from catego...
+2  The Project · Gutenberg » EBook « of Die Fürstin.
+
+id            UInt64
+category    category
+metric       float64
+count          UInt8
+text          string
+dtype: object
+
+```
+Note how nullable pandas extension dtypes are used to preserve correct integer values, where pure arrow would have used the unsafe float type instead.
 
 <details>
-<summary>Pandas</summary>
+<summary>Pandas comparison</summary>
 
-Trying to read this using `pandas.read_csv(...)` and default arguments only will fail. To find the correct arguments, you'll have to open the CSV in a text editor and manually identify the separator and the initial lines to skip, and then try different encodings until you find one that seems to decode all characters correctly. But even if you then manage to read the CSV, the result may not be what you expected:
+Trying to read CSV files like the above using `pandas.read_csv(...)` and default arguments only will fail. To find the correct arguments, you'll have to open the CSV in a text editor and manually identify the separator and the initial lines to skip, and then try different encodings until you find one that seems to decode all characters correctly. But even if you then manage to read the CSV, the result may not be what you expected:
 
 ``` python
 df = pd.read_csv(
@@ -90,7 +188,7 @@ which is not the value `"9007199254740993"` contained in our CSV file. We cannot
 </details>
 
 <details>
-<summary>Arrow</summary>
+<summary>Pure arrow comparison</summary>
 
 The `arrow` CSV reader faces exactly the same limitations as `pandas`:
 

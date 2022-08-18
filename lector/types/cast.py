@@ -49,7 +49,7 @@ class CastStrategy(ABC):
 
     converters: Converters | None = None
     columns: list[str] | None = None
-    log: bool = True
+    log: bool = False
 
     def __post_init__(self):
         self.converters = ensure_converters(self.converters)
@@ -135,7 +135,7 @@ class Cast:
     """Tried a specific cast for each columns."""
 
     converters: dict[str, Converter]
-    log: bool = True
+    log: bool = False
 
     def cast(self, table: Table) -> Table:
 

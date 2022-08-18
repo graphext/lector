@@ -19,7 +19,7 @@ from .utils import decode_metadata
 
 LOG = get_console()
 
-BOX = box.HEAVY_HEAD
+BOX = box.HORIZONTALS
 
 Item = TypeVar("Item")
 
@@ -59,10 +59,10 @@ def type_view(type: DataType) -> str:
 
 def dict_view(d: dict, title: str = "", expand: bool = False, width=None, **kwds) -> Panel:
     dv = Pretty(d, **kwds)
-    return Panel(dv, expand=expand, title=title, width=width, box=box.HEAVY_HEAD)
+    return Panel(dv, expand=expand, title=title, width=width, box=BOX)
 
 
-def schema_view(schema: Schema, title: str | None = None, padding: int = 1) -> Table:
+def schema_view(schema: Schema, title: str | None = "Schema", padding: int = 1) -> Table:
     """Make a rich view for arrow schema."""
 
     meta = {field.name: decode_metadata(field.metadata or {}) for field in schema}
