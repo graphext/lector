@@ -3,15 +3,24 @@ from __future__ import annotations
 
 import json
 from collections import namedtuple
+from functools import singledispatch
 from time import perf_counter
 from typing import Union
 
 import pyarrow as pa
 from pyarrow import type_for_alias  # noqa: F401
-from pyarrow import Array, ChunkedArray, DataType, Schema
+from pyarrow import Array, ChunkedArray, DataType, Schema, Table
 from pyarrow import compute as pac
 from pyarrow import types as pat
 from pyarrow.lib import ensure_type  # noqa: F401
+
+try:
+    import pandas as pd
+
+    PANDAS_INSTALLED = True
+except Exception:
+    PANDAS_INSTALLED = False
+
 
 Number = Union[int, float]
 
@@ -204,6 +213,37 @@ class Timer:
     def __exit__(self, type, value, traceback):
         self.end = perf_counter()
         self.elapsed = self.end - self.start
+
+
+if PANDAS_INSTALLED:
+
+    # Arrow currently doesn't have any way to map its integer types to pandas
+    # extension dtypes depending on whether a columns has missing values or not
+
+    @singledispatch
+    def as_pd(array: Array):
+        """Proper conversion allowing pandas extension types."""
+
+        atype = array.type
+
+        if pat.is_string(atype):
+            return array.to_pandas().astype("string")
+
+        if pat.is_boolean(atype):
+            return array.to_pandas().astype("boolean")
+
+        if pat.is_integer(atype) and array.null_count > 0:
+            dtype_name = str(atype).replace("i", "I").replace("u", "U")
+            return array.to_pandas(integer_object_nulls=True).astype(dtype=dtype_name)
+
+        return array.to_pandas()
+
+    @as_pd.register
+    def _(table: Table):
+        columns = [as_pd(array) for array in table]
+        df = pd.concat(columns, axis=1)
+        df.columns = table.column_names
+        return df
 
 
 # def test_numeric_predicates():
