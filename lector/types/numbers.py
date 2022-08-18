@@ -26,9 +26,12 @@ from .regex import RE_INT, RE_IS_FLOAT
 
 
 def clean_float_pattern(thousands: str = ",") -> str:
+    """Removes characters in number strings that Arrow cannot parse."""
     if thousands == ",":
+        # Match a "+" at the beginning and commas anywhere
         return r"^\+|,"
     else:
+        # Match a "+" at the beginning and a period anywhere
         return r"^\+|\."
 
 
@@ -96,12 +99,25 @@ def maybe_parse_floats(arr: Array, threshold: float = 0.5, decimal: str = ".") -
     Also see following for more regex parsing options:
     https://stackoverflow.com/questions/12643009/regular-expression-for-floating-point-numbers
 
+    Note, we don't parse as float if there isn't a single value with decimals. If this is
+    the case they should be integers really, and if they haven't been parsed as ints before,
+    that's because the values didn't fit into Arrow's largesy integer type, in which case it
+    isn't safe to parse as float, which Arrow would otherwise do unsafely(!) and silently.
+
     TODO:
 
     - try to fold the empty string case into the regex directly to avoid another pass
       over the data
 
     """
+    if pac.sum(pac.count_substring(arr, pattern=decimal)).as_py() == 0:
+        # print(
+        #     "Won't parse as float because no value seems to contain decimals! "
+        #     "If values haven't been parsed as ints before, they are probably too big "
+        #     "and should be treated as identifiers (IDs)."
+        # )
+        return None
+
     thousands = "," if decimal == "." else "."
     pattern = clean_float_pattern(thousands)
     clean = pac.replace_substring_regex(arr, pattern=pattern, replacement="")
@@ -129,10 +145,14 @@ def maybe_truncate_floats(arr: Array, threshold: float = 1.0) -> Array | None:
     if proportion_equal(arr, trunc) < threshold:
         return None
 
-    if pac.min(arr).as_py() >= 0:
-        return pac.cast(trunc, pa.uint64())
-    else:
-        return pac.cast(trunc, pa.int64())
+    try:
+        if pac.min(arr).as_py() >= 0:
+            return pac.cast(trunc, pa.uint64())
+        else:
+            return pac.cast(trunc, pa.int64())
+    except pa.ArrowInvalid as exc:
+        print("Failed to convert floats to ints: " + str(exc))
+        return None
 
 
 def maybe_downcast_ints(arr: Array) -> Array | None:

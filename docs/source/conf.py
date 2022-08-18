@@ -3,11 +3,13 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../.."))
 
+from lector import __version__  # noqa
 
 project = "lector"
 copyright = "2022, Thomas Buhrmann"
 author = "Thomas Buhrmann"
-release = "0.1"
+version = __version__
+release = version
 
 extensions = [
     # "sphinx.ext.autodoc",
