@@ -24,7 +24,7 @@ pip install git+https://github.com/graphext/lector
 
 ## Usage
 
-The below examples illustrate lector's default bevaviour when reading CSV files. For customization options, check the detailed docs here https://lector.readthedocs.io/.
+The below examples illustrate lector's default behaviour when reading CSV files. For customization options, check the detailed docs here https://lector.readthedocs.io/.
 
 Let's assume we receive the following CSV file, containing some initial metadata, using the semicolon as separator, having some missing fields, and being encoded in Latin-1:
 
