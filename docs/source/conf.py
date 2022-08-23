@@ -13,7 +13,7 @@ release = version
 
 extensions = [
     # "sphinx.ext.autodoc",
-    # "sphinx.ext.autosectionlabel",
+    "sphinx.ext.autosectionlabel",
     # "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
@@ -21,6 +21,7 @@ extensions = [
     "sphinx.ext.autodoc.typehints",
     "sphinx.ext.todo",
     "autoapi.extension",
+    "IPython.sphinxext.ipython_console_highlighting",
 ]
 
 autodoc_typehints = "description"
@@ -29,6 +30,8 @@ autoapi_dirs = ["../../lector"]
 autoapi_member_order = "groupwise"
 autoapi_add_toctree_entry = False
 autoapi_template_dir = "_templates"
+
+autosectionlabel_prefix_document = True
 
 # https://stackoverflow.com/questions/2701998/sphinx-autodoc-is-not-automatic-enough/62613202#62613202
 # https://github.com/sphinx-doc/sphinx/issues/7912
@@ -77,7 +80,7 @@ html_theme_options = {
         {
             "name": "Graphext",
             "url": "https://www.graphext.com",
-            "icon": "_static/graphext.png",
+            "icon": "_static/gx_logo_sq_blue.jpg",
             "type": "local",
         },
     ]
