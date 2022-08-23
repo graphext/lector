@@ -21,7 +21,6 @@ extensions = [
     "sphinx.ext.autodoc.typehints",
     "sphinx.ext.todo",
     "autoapi.extension",
-    "IPython.sphinxext.ipython_console_highlighting",
 ]
 
 autodoc_typehints = "description"

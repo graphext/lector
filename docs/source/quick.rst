@@ -211,7 +211,7 @@ type. This may seem merely a nuisance in the case of the ``count`` column, which
 be cast to a (nullable) integer type. It is, however, a big problem for the ``id`` column,
 since not all integers can be represented exactly by a 64 bit floating type:
 
-.. code-block:: ipython
+.. code-block::
 
     >>> print(df.id.iloc[2])
     9007199254740992.0
