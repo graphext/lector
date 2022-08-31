@@ -157,6 +157,7 @@ class Url(Converter):
         if not pat.is_string(array.type):
             return None
 
+        array = pac.utf8_trim_whitespace(array)
         if proportion_url(array) >= self.threshold:
             result = pac.dictionary_encode(array)
             return Conversion(result, meta={"semantic": "url"})
