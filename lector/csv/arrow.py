@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from io import BytesIO, TextIOBase
 from typing import Dict, Iterable, Union
 
 import pyarrow as pa
@@ -89,8 +90,12 @@ class ArrowReader(Reader):
             co["null_values"] = MISSING_STRINGS
 
         try:
+            fp = self.fp
+            if isinstance(fp, TextIOBase):
+                fp = BytesIO(fp.read().encode("utf-8"))
+
             tbl = pacsv.read_csv(
-                self.fp,
+                fp,
                 read_options=pa.csv.ReadOptions(**ro),
                 parse_options=pa.csv.ParseOptions(**po),
                 convert_options=pa.csv.ConvertOptions(**co),
