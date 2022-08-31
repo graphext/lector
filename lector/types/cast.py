@@ -132,7 +132,7 @@ class Autocast(CastStrategy):
 
 @dataclass
 class Cast:
-    """Tried a specific cast for each columns."""
+    """Tries a specific cast for each column."""
 
     converters: dict[str, Converter]
     log: bool = False
