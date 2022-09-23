@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Iterable, Union
 
 import pyarrow as pa
@@ -102,6 +102,9 @@ class Autocast(CastStrategy):
     """
 
     n_samples: int = 100
+    fallback: Converter | None = field(
+        default_factory=lambda: Category(threshold=0.0, max_cardinality=None)
+    )
 
     def cast_array(self, array: Array | ChunkedArray, name: str | None = None) -> Conversion:
 
@@ -120,12 +123,12 @@ class Autocast(CastStrategy):
                         LOG.print(f"Converted column {name or ''} with {converter}")
                     return result
 
-        if pa.types.is_string(array.type):
+        if self.fallback and pa.types.is_string(array.type):
             LOG.print(
                 f"Got no matching converter for string column '{name or ''}'. "
-                "Will try casting to categorical (dict)."
+                f"Will try fallback {self.fallback}."
             )
-            return Category(threshold=0.0, max_cardinality=None).convert(array)
+            return self.fallback.convert(array)
 
         return None
 
