@@ -8,16 +8,16 @@ from .csv import ArrowReader, Dialect, EmptyFileError, Format, Preambles
 from .csv.abc import FileLike, PreambleRegistry
 from .csv.dialects import DialectDetector
 from .csv.encodings import EncodingDetector
-from .log import LOG, schema_view, table_view
+from .log import CONSOLE, LOG, schema_view, table_view
 from .types import Autocast, Cast, Converter, Registry
 from .types.cast import CastStrategy
 
 
-class Inference(Enum):
+class Inference(str, Enum):
 
-    Native = 1
-    Auto = 2
-    Disable = 3
+    Native = "Native"
+    Auto = "Auto"
+    Disable = "Disable"
 
 
 def read_csv(
@@ -28,10 +28,11 @@ def read_csv(
     types: dict | Inference = Inference.Auto,
     strategy: CastStrategy | None = None,
     to_pandas: bool = False,
+    log: bool = False,
 ):
     """Thin wrapper around class-based reader interface."""
 
-    reader = ArrowReader(fp, encoding, dialect, preamble)
+    reader = ArrowReader(fp, encoding, dialect, preamble, log=log)
 
     dtypes = types
     if isinstance(types, Inference):
@@ -40,7 +41,7 @@ def read_csv(
     tbl = reader.read(types=dtypes)
 
     if types == Inference.Auto:
-        strategy = strategy or Autocast()
+        strategy = strategy or Autocast(log=log)
         tbl = strategy.cast(tbl)
 
     if to_pandas:
@@ -57,6 +58,7 @@ __all__ = [
     "Autocast",
     "ArrowReader",
     "Cast",
+    "CONSOLE",
     "Converter",
     "EmptyFileError",
     "Dialect",

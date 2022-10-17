@@ -1,6 +1,7 @@
 """Helpers to pretty print/log objects using Rich."""
 from __future__ import annotations
 
+import logging
 from typing import Iterable, Sequence, TypeVar
 
 import pyarrow as pa
@@ -17,11 +18,68 @@ from rich.text import Text
 
 from .utils import decode_metadata
 
-LOG = get_console()
+CONSOLE = get_console()
 
 BOX = box.HORIZONTALS
 
 Item = TypeVar("Item")
+
+
+class ColoredFormatter(logging.Formatter):
+    """A custom formatter controlling message color."""
+
+    RESET = "\x1b[0m"
+
+    FORMAT = "<COL>{asctime} {levelname} | {name} | {module}.{funcName}:{lineno}<RESET> \n{message}"
+
+    COLORS = {
+        logging.DEBUG: "\x1b[38;20m",  # grey
+        logging.INFO: "\x1b[38;20m",  # grey
+        logging.WARNING: "\x1b[33;1m",  # bold yellow
+        logging.ERROR: "\x1b[31;1m",  # bold red
+        logging.CRITICAL: "\x1b[31;1m",  # bold red
+    }
+
+    def __init__(self, datefmt=None, validate=True):
+        super().__init__(self.FORMAT, style="{", datefmt=datefmt, validate=validate)
+
+    def format(self, record):
+        msg = super().format(record)
+        col = self.COLORS.get(record.levelno)
+        return msg.replace("<COL>", col).replace("<RESET>", self.RESET)
+
+
+def setup_logging(level=logging.DEBUG, color=True):
+    """Ensure logging handler is only added once."""
+    if color:
+        fmt = ColoredFormatter(datefmt="%H:%M:%S")
+    else:
+        fmt = logging.Formatter(
+            "{asctime} {levelname} | {name} | {module}.{funcName}:{lineno} \n{message}",
+            datefmt="%H:%M:%S",
+            style="{",
+        )
+
+    logger = logging.getLogger("lector")
+    logger.setLevel(level)
+
+    _sh = logging.StreamHandler()
+    _sh.setFormatter(fmt)
+    logger.addHandler(_sh)
+
+    return logger
+
+
+LOG = setup_logging(level=logging.INFO)
+
+
+def pformat(obj, console=None, markup=True, **kwargs):
+    """Pretty format any object, if possible with Rich."""
+
+    console = console or CONSOLE
+    with console.capture() as capture:
+        console.print(obj, markup=markup)
+    return capture.get()
 
 
 def track(
@@ -140,6 +198,7 @@ def table_view(
     n_rows_max: int = 10,
     n_columns_max: int = 6,
     max_column_width: int = 20,
+    padding: int = 1,
 ) -> Table:
     """Pyarrow table to rich table."""
 
@@ -217,4 +276,4 @@ def table_view(
     table.add_row(*nulls)
     table.add_row(*types)
 
-    return table
+    return Padding(table, padding)

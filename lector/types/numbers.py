@@ -13,6 +13,7 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array
 
+from ..log import LOG
 from ..utils import (
     dtype_name,
     empty_to_null,
@@ -77,7 +78,7 @@ def maybe_parse_ints(
                 try:
                     return pac.cast(num, pa.uint64())
                 except Exception as exc:
-                    print(exc)
+                    LOG.error(exc)
 
     return None
 
@@ -133,7 +134,7 @@ def maybe_parse_floats(arr: Array, threshold: float = 0.5, decimal: str = ".") -
     try:
         return pac.cast(valid, pa.float64())
     except Exception as exc:
-        print(exc)
+        LOG.error(exc)
 
     return None
 
@@ -151,7 +152,7 @@ def maybe_truncate_floats(arr: Array, threshold: float = 1.0) -> Array | None:
         else:
             return pac.cast(trunc, pa.int64())
     except pa.ArrowInvalid as exc:
-        print("Failed to convert floats to ints: " + str(exc))
+        LOG.error("Failed to convert floats to ints: " + str(exc))
         return None
 
 

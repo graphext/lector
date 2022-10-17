@@ -15,6 +15,7 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
 
+from ..log import LOG
 from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
 from .regex import RE_FRATIONAL_SECONDS, RE_TRAILING_DECIMALS
@@ -150,7 +151,7 @@ def maybe_parse_timestamps(
             first_date = valid[0]
             first_format = find_format(first_date)
             if first_format is not None:
-                print(f"First date '{first_date}' matches {first_format}")
+                LOG.debug(f"First date '{first_date}' matches {first_format}")
                 formats = ALL_FORMATS.copy()
                 formats.remove(first_format)
                 formats.insert(0, first_format)

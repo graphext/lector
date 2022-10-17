@@ -7,6 +7,7 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, DataType
 
+from ..log import LOG
 from ..utils import ensure_type, min_max, proportion_trueish, smallest_int_type
 from .abc import Conversion, Converter, Registry
 from .regex import RE_LIST_CLEAN, RE_LIST_LIKE
@@ -44,8 +45,8 @@ def maybe_cast_lists(
                         itype = ensure_type(itype)
                         result = pac.cast(result, pa.list_(itype))
                     except Exception as exc:
-                        print(exc)
-                        print("Will not downcast lists of int64.")
+                        LOG.error(exc)
+                        LOG.error("Will not downcast lists of int64.")
 
             return result
         except Exception:

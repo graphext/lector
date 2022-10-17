@@ -23,7 +23,7 @@ class ArrowReader(Reader):
         if row.text and len(row.text) > 100:
             row = row._replace(text=row.text[:100])
 
-        LOG.print(f"Skipping row {row}")
+        LOG.warning(f"Skipping row {row}")
         return "skip"
 
     @classmethod

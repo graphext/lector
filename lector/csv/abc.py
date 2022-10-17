@@ -10,7 +10,7 @@ from typing import IO, Any, TextIO, Union
 
 from rich.table import Table as RichTable
 
-from ..log import LOG, dict_view
+from ..log import LOG, dict_view, pformat
 from . import dialects, encodings
 from .dialects import Dialect, DialectDetector
 from .encodings import EncodingDetector
@@ -95,6 +95,8 @@ class Reader(ABC):
         """Detect the number of junk lines at the start of the file."""
         if self.preamble is None:
             return 0
+        elif isinstance(self.preamble, (int, float)):
+            return self.preamble
         elif issubclass(self.preamble, Preambles):
             return Preambles.detect(buffer, log=self.log) or 0
 
@@ -142,7 +144,7 @@ class Reader(ABC):
         )
 
         if self.log:
-            LOG.print(self.format)
+            LOG.info(pformat(self.format))
 
     @abstractmethod
     def parse(self, *args, **kwds) -> Any:

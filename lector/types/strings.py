@@ -230,7 +230,7 @@ def maybe_sex(arr: Array) -> tuple[str, str] | None:
 
     if len(values) == 2:
         mapper = SexMapper(values)
-        LOG.print(f"Sex mapping: {mapper.map}")
+        LOG.debug(f"Sex mapping: {mapper.map}")
         mapped = map_values(lower, mapper.map)
         return mapped.dictionary_encode()
 

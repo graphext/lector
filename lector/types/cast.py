@@ -8,7 +8,7 @@ from typing import Dict, Iterable, Union
 import pyarrow as pa
 from pyarrow import Array, ChunkedArray, Table
 
-from ..log import LOG, schema_diff_view, track
+from ..log import LOG, pformat, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
 from .strings import Category
@@ -79,7 +79,7 @@ class CastStrategy(ABC):
         if self.log:
             diff = schema_diff(schema, table.schema)
             if diff:
-                LOG.print(schema_diff_view(diff, title="Changed types"))
+                LOG.info(pformat(schema_diff_view(diff, title="Changed types")))
 
         return table
 
@@ -108,25 +108,27 @@ class Autocast(CastStrategy):
 
     def cast_array(self, array: Array | ChunkedArray, name: str | None = None) -> Conversion:
 
-        # if self.log:
-        #     LOG.print(f"Converting column {name or ''}")
+        name = name or ""
+
+        if self.log:
+            LOG.debug(f"Converting column {name}")
 
         for converter in self.converters:
 
-            # if self.log:
-            #     LOG.print(f"  with converter '{converter}'")
+            if self.log:
+                LOG.debug(f"  with converter '{pformat(converter)}'")
 
             sample = array.drop_null().slice(length=self.n_samples)
             if len(sample) > 0 and converter.convert(sample):
                 if result := converter.convert(array):
                     if self.log:
-                        LOG.print(f"Converted column {name or ''} with {converter}")
+                        LOG.debug(f'Converted column "{name}" with converter\n{pformat(converter)}')
                     return result
 
         if self.fallback and pa.types.is_string(array.type):
-            LOG.print(
-                f"Got no matching converter for string column '{name or ''}'. "
-                f"Will try fallback {self.fallback}."
+            LOG.warning(
+                f'Got no matching converter for string column "{name}". '
+                f"Will try fallback {pformat(self.fallback)}."
             )
             return self.fallback.convert(array)
 
@@ -161,13 +163,15 @@ class Cast:
                 idx = table.schema.get_field_index(name)
                 table = table.set_column(idx, field, result)
             else:
-                LOG.print(f"Conversion of columns '{name}' with converter '{converter}' failed!")
-                LOG.print(f"Original column type: {array.type}")
-                LOG.print(f"Original column: {array}")
+                LOG.error(
+                    f"Conversion of columns '{name}' with converter '{pformat(converter)}' failed!"
+                )
+                LOG.error(f"Original column type: {array.type}")
+                LOG.error(f"Original column: {array}")
 
         if self.log:
             diff = schema_diff(schema, table.schema)
             if diff:
-                LOG.print(schema_diff_view(diff, title="Changed types"))
+                LOG.info(pformat(schema_diff_view(diff, title="Changed types")))
 
         return table

@@ -1,4 +1,4 @@
-from lector.log import LOG
+from lector.log import CONSOLE
 
 
 def equal(obj1, obj2, extra=None):
@@ -6,11 +6,11 @@ def equal(obj1, obj2, extra=None):
     eq = obj1 == obj2
 
     if not eq:
-        LOG.print(obj1)
-        LOG.print(obj2)
+        CONSOLE.print(obj1)
+        CONSOLE.print(obj2)
 
         if extra is not None:
-            LOG.print(extra)
+            CONSOLE.print(extra)
 
         return False
 

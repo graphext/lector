@@ -92,7 +92,6 @@ def test_formats(codec, preamble, dialect, data):
     strategy = csv_strat(dialect=pydialect, lines=3, header=2)
     csv = data.draw(strategy)
     csv = preamble + pydialect.lineterminator + csv
-    # LOG.print(csv)
 
     try:
         encoded = csv.encode(codec)

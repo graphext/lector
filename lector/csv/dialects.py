@@ -149,8 +149,7 @@ class PySniffer(DialectDetector):
                 pass
 
         if self.log:
-            LOG.print("Falling back to default dialect...")
-
+            LOG.info("Falling back to default dialect...")
         return Dialect()
 
 

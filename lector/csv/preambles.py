@@ -63,7 +63,7 @@ class Preambles:
                 if log:
                     name = detector.__class__.__name__
                     msg = f"'{name}' matches CSV buffer: detected {skiprows} rows to skip."
-                    LOG.print(msg)
+                    LOG.info(msg)
                 return skiprows
 
             buffer.seek(cursor)
