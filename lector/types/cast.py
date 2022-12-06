@@ -8,7 +8,7 @@ from typing import Dict, Iterable, Union
 import pyarrow as pa
 from pyarrow import Array, ChunkedArray, Table
 
-from ..log import LOG, pformat, schema_diff_view, track
+from ..log import LOG, iformat, pformat, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
 from .strings import Category
@@ -110,25 +110,19 @@ class Autocast(CastStrategy):
 
         name = name or ""
 
-        if self.log:
-            LOG.debug(f"Converting column {name}")
-
         for converter in self.converters:
-
-            if self.log:
-                LOG.debug(f"  with converter '{pformat(converter)}'")
 
             sample = array.drop_null().slice(length=self.n_samples)
             if len(sample) > 0 and converter.convert(sample):
                 if result := converter.convert(array):
                     if self.log:
-                        LOG.debug(f'Converted column "{name}" with converter\n{pformat(converter)}')
+                        LOG.debug(f'Converted column "{name}" with converter\n{iformat(converter)}')
                     return result
 
         if self.fallback and pa.types.is_string(array.type):
             LOG.warning(
-                f'Got no matching converter for string column "{name}". '
-                f"Will try fallback {pformat(self.fallback)}."
+                f"Got no matching converter for string column '{name}'. "
+                f"Will try fallback {iformat(self.fallback)}."
             )
             return self.fallback.convert(array)
 
@@ -164,7 +158,7 @@ class Cast:
                 table = table.set_column(idx, field, result)
             else:
                 LOG.error(
-                    f"Conversion of columns '{name}' with converter '{pformat(converter)}' failed!"
+                    f"Conversion of columns '{name}' with converter '{iformat(converter)}' failed!"
                 )
                 LOG.error(f"Original column type: {array.type}")
                 LOG.error(f"Original column: {array}")

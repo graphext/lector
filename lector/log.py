@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import sys
+from functools import partial
 from typing import Iterable, Sequence, TypeVar
 
 import pyarrow as pa
@@ -51,35 +53,46 @@ class ColoredFormatter(logging.Formatter):
 
 def setup_logging(level=logging.DEBUG, color=True):
     """Ensure logging handler is only added once."""
+    date_fmt = "%H:%M:%S"
     if color:
-        fmt = ColoredFormatter(datefmt="%H:%M:%S")
+        fmt = ColoredFormatter(datefmt=date_fmt)
     else:
         fmt = logging.Formatter(
             "{asctime} {levelname} | {name} | {module}.{funcName}:{lineno} \n{message}",
-            datefmt="%H:%M:%S",
+            datefmt=date_fmt,
             style="{",
         )
 
     logger = logging.getLogger("lector")
     logger.setLevel(level)
 
-    _sh = logging.StreamHandler()
+    _sh = logging.StreamHandler(sys.stdout)
     _sh.setFormatter(fmt)
     logger.addHandler(_sh)
 
     return logger
 
 
-LOG = setup_logging(level=logging.INFO)
+LOG = setup_logging(level=logging.INFO, color=True)
 
 
-def pformat(obj, console=None, markup=True, **kwargs):
+def pformat(obj, console=None, markup=True, end="", strip=False, **kwargs):
     """Pretty format any object, if possible with Rich."""
-
     console = console or CONSOLE
+
     with console.capture() as capture:
-        console.print(obj, markup=markup)
-    return capture.get()
+        console.print(obj, markup=markup, end=end)
+
+    result = capture.get()
+
+    if strip:
+        result = result.strip()
+
+    return result
+
+
+iformat = partial(pformat, strip=True)
+"""Shortcut for inline formatting, avoiding strings terminating in line breaks."""
 
 
 def track(
@@ -115,9 +128,12 @@ def type_view(type: DataType) -> str:
     return str(type)
 
 
-def dict_view(d: dict, title: str = "", expand: bool = False, width=None, **kwds) -> Panel:
+def dict_view(
+    d: dict, title: str = "", expand: bool = False, width=None, padding=1, **kwds
+) -> Panel:
     dv = Pretty(d, **kwds)
-    return Panel(dv, expand=expand, title=title, width=width, box=BOX)
+    p = Panel(dv, expand=expand, title=title, width=width, box=BOX)
+    return Padding(p, padding)
 
 
 def schema_view(schema: Schema, title: str | None = "Schema", padding: int = 1) -> Table:

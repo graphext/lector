@@ -15,14 +15,15 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
 
-from ..log import LOG
 from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
 from .regex import RE_FRATIONAL_SECONDS, RE_TRAILING_DECIMALS
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%dT%H:%M",
+    "%Y-%m-%d %H:%M",
     "%Y-%m-%dT%I:%M:%S %p",
     "%Y-%m-%dT%I:%M %p",
     "%Y-%m-%d%n%H:%M:%S",
@@ -151,7 +152,6 @@ def maybe_parse_timestamps(
             first_date = valid[0]
             first_format = find_format(first_date)
             if first_format is not None:
-                LOG.debug(f"First date '{first_date}' matches {first_format}")
                 formats = ALL_FORMATS.copy()
                 formats.remove(first_format)
                 formats.insert(0, first_format)
@@ -190,6 +190,21 @@ class Timestamp(Converter):
 
         if not pat.is_string(array.type):
             return None
+
+        # Pyarrow's strptime behaves different from its internal cast and inference. Only the
+        # latter support timezone offset. So try cast first, and then strptime-based conversion.
+        try:
+            result = pac.cast(array, pa.timestamp(unit=self.unit))
+        except pa.ArrowInvalid:
+            try:
+                result = pac.cast(array, pa.timestamp(unit=self.unit, tz="UTC"))
+            except pa.ArrowInvalid:
+                result = None
+
+        if result is not None:
+            converted, format = result, "arrow"
+            meta["format"] = format
+            return Conversion(converted, meta=meta)
 
         result = maybe_parse_timestamps(
             array,
