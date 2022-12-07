@@ -1,3 +1,5 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/graphext/lector/HEAD?labpath=notebooks%2Fusage.ipynb)
+
 # Lector
 
 [Lector](https://github.com/graphext/lector) aims to be a fast reader for potentially messy CSV files with configurable column type inference. It combines automatic detection of file encodings, CSV dialects (separator, escaping etc.) and preambles (initial lines containing metadata or junk unrelated to the actual tabular data). Its goal is to just-read-the-effing-CSV file without manual configuration in most cases. Each of the detection components is configurable and can be swapped out easily with custom implementations.
