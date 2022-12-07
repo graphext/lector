@@ -1,0 +1,13 @@
+name: python3.10
+channels:
+  - conda-forge
+dependencies:
+  - cchardet
+  - rich
+  - typer
+  - pandas
+  - pyarrow>=8.0.0
+  - python=3.10
+  - pip
+  - pip:
+    - clevercsv
