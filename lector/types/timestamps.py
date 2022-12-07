@@ -1,7 +1,13 @@
 """Helpers to convert timestamp strings or time-like columns to timestamps.
 
-TODO:
+Arrow seems to be using this parser under the hood:
+https://pubs.opengroup.org/onlinepubs/009695399/functions/strptime.html
 
+in its compute.strptime function, which doesn't support timezone offsets via
+the %z or %Z directives. Though they do support timezones when importing CSVs
+or casting...
+
+TODO:
 - Doesn't maintain fractional seconds (only removes them for strptime parsing)
 
 """
@@ -21,9 +27,7 @@ from .regex import RE_FRATIONAL_SECONDS, RE_TRAILING_DECIMALS
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%dT%H:%M",
-    "%Y-%m-%d %H:%M",
     "%Y-%m-%dT%I:%M:%S %p",
     "%Y-%m-%dT%I:%M %p",
     "%Y-%m-%d%n%H:%M:%S",
