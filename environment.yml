@@ -1,4 +1,4 @@
-name: python3.10
+name: lectorpy310
 channels:
   - conda-forge
 dependencies:
@@ -13,3 +13,4 @@ dependencies:
   - pip
   - pip:
     - clevercsv
+    - lector @ git+https://github.com/graphext/lector@main
