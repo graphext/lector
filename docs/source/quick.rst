@@ -126,9 +126,9 @@ extension dtypes for correct conversion):
 
 .. code-block:: python
 
-    from lector.utils import as_pd
+    from lector.utils import to_pandas
 
-    df = as_pd(tbl)
+    df = to_pandas(tbl)
     print(df)
     print(df.types)
 

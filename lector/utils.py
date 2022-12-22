@@ -221,7 +221,7 @@ if PANDAS_INSTALLED:
     # extension dtypes depending on whether a columns has missing values or not
 
     @singledispatch
-    def as_pd(array: Array):
+    def to_pandas(array: Array):
         """Proper conversion allowing pandas extension types."""
 
         atype = array.type
@@ -238,9 +238,9 @@ if PANDAS_INSTALLED:
 
         return array.to_pandas()
 
-    @as_pd.register
+    @to_pandas.register
     def _(table: Table):
-        columns = [as_pd(array) for array in table]
+        columns = [to_pandas(array) for array in table]
         df = pd.concat(columns, axis=1)
         df.columns = table.column_names
         return df

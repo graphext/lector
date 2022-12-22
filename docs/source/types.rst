@@ -59,15 +59,15 @@ For numeric columns lector has automatically identified the most efficient (leas
 memory-hungry) data types. The semantic metadata here is used to indicate pandas'
 corresponding (potentially nullable extension) ``dtype``.
 
-Using lector's ``as_pd()`` function we can convert the arrow table to a pandas DataFrame
+Using lector's ``to_pandas()`` function we can convert the arrow table to a pandas DataFrame
 ensuring that all data is converted correctly, even when there is no corresponding
 pandas type:
 
 .. code-block:: python
 
-    from lector.utils import as_pd
+    from lector.utils import to_pandas
 
-    df = as_pd(tbl)
+    df = to_pandas(tbl)
     print(df)
     print(df.dtypes)
 

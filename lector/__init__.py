@@ -25,7 +25,7 @@ def read_csv(
     encoding: str | EncodingDetector | None = None,
     dialect: dict | DialectDetector | None = None,
     preamble: int | PreambleRegistry | None = None,
-    types: dict | Inference = Inference.Auto,
+    types: str | dict | Inference = Inference.Auto,
     strategy: CastStrategy | None = None,
     to_pandas: bool = False,
     log: bool = False,
@@ -45,9 +45,8 @@ def read_csv(
         tbl = strategy.cast(tbl)
 
     if to_pandas:
-
         if utils.PANDAS_INSTALLED:
-            return utils.as_pd(tbl)
+            return utils.to_pandas(tbl)
         else:
             raise ("It seems pandas isn't installed in this environment!")
 
