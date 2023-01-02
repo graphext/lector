@@ -27,5 +27,5 @@ RE_URL = (
 RE_TRAILING_DECIMALS: str = r"\.(\d+)$"
 """Strictly trailing, i.e. nothing after the decimals."""
 
-RE_FRATIONAL_SECONDS: str = r"(\.\d+)"
+RE_FRATIONAL_SECONDS: str = r"(?P<frac>\.\d+)"
 """Allows for timezone after fractional seconds, capturing part to be replaced."""

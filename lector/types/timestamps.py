@@ -8,7 +8,10 @@ the %z or %Z directives. Though they do support timezones when importing CSVs
 or casting...
 
 TODO:
-- Doesn't maintain fractional seconds (only removes them for strptime parsing)
+- Fractional seconds are handled manually, also see
+  https://issues.apache.org/jira/browse/ARROW-15883. They are first removed via regex,
+  converted to a pyarrow duration type and later added to parsed timestamps.
+- Timezones are only supported in format "+0100", but not e.g. "+01:00"
 
 """
 from __future__ import annotations
@@ -21,9 +24,10 @@ import pyarrow.compute as pac
 import pyarrow.types as pat
 from pyarrow import Array, TimestampScalar
 
+from ..log import LOG
 from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
-from .regex import RE_FRATIONAL_SECONDS, RE_TRAILING_DECIMALS
+from .regex import RE_FRATIONAL_SECONDS
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
@@ -78,18 +82,25 @@ ALL_FORMATS: list[str] = timestamp_formats()
 """All formats tried by default if None is explicitly provided when converting."""
 
 
-def proportion_trailing_decimals(arr: Array) -> float:
-    """Proportion of non-null dates in arr having fractional seconds."""
-    valid = arr.drop_null()
-    has_frac = pac.match_substring_regex(valid, RE_TRAILING_DECIMALS)
-    return proportion_trueish(has_frac)
-
-
 def proportion_fractional_seconds(arr: Array) -> float:
     """Proportion of non-null dates in arr having fractional seconds."""
     valid = arr.drop_null()
     has_frac = pac.match_substring_regex(valid, RE_FRATIONAL_SECONDS)
     return proportion_trueish(has_frac)
+
+
+def fraction_as_duration(arr: Array) -> Array:
+    """Convert an array (of strings) representing fractional seconds to duration type."""
+
+    if pat.is_string(arr.type):
+        arr = pac.cast(arr, pa.float64())
+
+    if pat.is_floating(arr.type):
+        # Assume values in [0,1]: convert to nanoseconds
+        arr = pac.multiply(arr, 1e9)
+        arr = pac.cast(arr, pa.int64())
+
+    return pac.cast(arr, pa.duration("ns"))
 
 
 @lru_cache(maxsize=128, typed=False)
@@ -141,12 +152,13 @@ def maybe_parse_timestamps(
 ) -> Array | None:
     """Parse lists of strings as dates with format inference."""
 
-    # if proportion_trailing_decimals(arr) > 0.1:
-    #     split = pac.split_pattern(arr, ".", max_splits=1, reverse=True)
-    #     arr = pac.list_element(split, 0)
-
     if proportion_fractional_seconds(arr) > 0.1:
+        frac = pac.extract_regex(arr, RE_FRATIONAL_SECONDS)
+        frac = pac.struct_field(frac, indices=[0])
+        frac = fraction_as_duration(frac)
         arr = pac.replace_substring_regex(arr, RE_FRATIONAL_SECONDS, "")
+    else:
+        frac = None
 
     if format is None:
         formats = ALL_FORMATS
@@ -156,6 +168,7 @@ def maybe_parse_timestamps(
             first_date = valid[0]
             first_format = find_format(first_date)
             if first_format is not None:
+                LOG.info(f"Found date format '{first_format}'")
                 formats = ALL_FORMATS.copy()
                 formats.remove(first_format)
                 formats.insert(0, first_format)
@@ -166,6 +179,8 @@ def maybe_parse_timestamps(
     for fmt in formats:
         result = maybe_parse_known_timestamps(arr, format=fmt, unit=unit, threshold=threshold)
         if result is not None:
+            if frac is not None:
+                result = pac.add(result, frac)
             return (result, fmt) if return_format else result
 
     return None
