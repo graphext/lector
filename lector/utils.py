@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from collections import namedtuple
+from contextlib import contextmanager
 from functools import singledispatch
 from time import perf_counter
 from typing import Union
@@ -66,6 +67,14 @@ MISSING_STRINGS: set[str] = {
     "",
 }
 """Extension of pandas and arrow default missing values."""
+
+
+@contextmanager
+def reset_buffer(buffer):
+    """Caches and resets buffer position."""
+    cursor = buffer.tell()
+    yield
+    buffer.seek(cursor)
 
 
 def smallest_int_type(vmin: Number, vmax: Number) -> str | None:

@@ -11,6 +11,7 @@ from typing import IO, Any, TextIO, Union
 from rich.table import Table as RichTable
 
 from ..log import LOG, dict_view, pformat
+from ..utils import reset_buffer
 from . import dialects, encodings
 from .dialects import Dialect, DialectDetector
 from .encodings import EncodingDetector
@@ -82,8 +83,8 @@ class Reader(ABC):
 
         if isinstance(buffer, io.BufferedIOBase):
             if isinstance(self.encoding, EncodingDetector):
-                self.encoding = self.encoding.detect(buffer)
-                buffer.seek(0)
+                with reset_buffer(buffer):
+                    self.encoding = self.encoding.detect(buffer)
 
             buffer = io.TextIOWrapper(buffer, encoding=self.encoding, errors="replace")
         else:
@@ -121,20 +122,18 @@ class Reader(ABC):
         """Infer all parameters required for reading a csv file."""
 
         self.buffer = self.decode(self.fp)
-        self.buffer.seek(0)
 
-        self.preamble = self.detect_preamble(self.buffer)
-        self.buffer.seek(0)
+        with reset_buffer(self.buffer):
+            self.preamble = self.detect_preamble(self.buffer)
 
         for _ in range(self.preamble):
             self.buffer.readline()
 
-        header = self.buffer.tell()
-        self.dialect = self.detect_dialect(self.buffer)
+        with reset_buffer(self.buffer):
+            self.dialect = self.detect_dialect(self.buffer)
 
-        self.buffer.seek(header)
-        self.columns = self.detect_columns(self.buffer, self.dialect)
-        self.buffer.seek(0)
+        with reset_buffer(self.buffer):
+            self.columns = self.detect_columns(self.buffer, self.dialect)
 
         self.format = Format(
             encoding=self.encoding,
