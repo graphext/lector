@@ -119,7 +119,7 @@ class Autocast(CastStrategy):
                         LOG.debug(f'Converted column "{name}" with converter\n{iformat(converter)}')
                     return result
 
-        if self.fallback and pa.types.is_string(array.type):
+        if self.fallback and pa.types.is_string(array.type) or pa.types.is_null(array.type):
             LOG.warning(
                 f"Got no matching converter for string column '{name}'. "
                 f"Will try fallback {iformat(self.fallback)}."
