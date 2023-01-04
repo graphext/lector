@@ -32,7 +32,7 @@ def read_csv(
 ):
     """Thin wrapper around class-based reader interface."""
 
-    reader = ArrowReader(fp, encoding, dialect, preamble, log=log)
+    reader = ArrowReader(fp, encoding=encoding, dialect=dialect, preamble=preamble, log=log)
 
     dtypes = types
     if isinstance(types, Inference):

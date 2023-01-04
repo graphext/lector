@@ -58,7 +58,7 @@ class Reader(ABC):
         self,
         fp: FileLike,
         encoding: str | EncodingDetector | None = None,
-        dialect: dict | DialectDetector | None = None,
+        dialect: dict | Dialect | DialectDetector | None = None,
         preamble: int | PreambleRegistry | None = None,
         log: bool = True,
     ) -> None:
@@ -103,10 +103,13 @@ class Reader(ABC):
 
     def detect_dialect(self, buffer: TextIO) -> dict:
         """Detect separator, quote character etc."""
-        if self.dialect is None:
-            return Dialect()
-        elif isinstance(self.dialect, DialectDetector):
+        if isinstance(self.dialect, DialectDetector):
             return self.dialect.detect(buffer)
+
+        elif isinstance(self.dialect, dict):
+            return Dialect(**self.dialect)
+
+        return self.dialect
 
     @classmethod
     def detect_columns(cls, buffer: TextIO, dialect: Dialect) -> list[str]:
