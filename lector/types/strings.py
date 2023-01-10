@@ -4,6 +4,7 @@ TODO:
 
  - Find a fast way to recognize whitespaces with regex (see is_text)
  - Try faster early out for text recognition using sufficient_texts()
+ - Make sure Sex creates an ordinal column with correct Female > Male order
 
 """
 from __future__ import annotations
