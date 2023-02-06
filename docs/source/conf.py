@@ -32,34 +32,6 @@ autoapi_template_dir = "_templates"
 
 autosectionlabel_prefix_document = True
 
-# https://stackoverflow.com/questions/2701998/sphinx-autodoc-is-not-automatic-enough/62613202#62613202
-# https://github.com/sphinx-doc/sphinx/issues/7912
-# autosummary_generate = True
-# autosummary_imported_members = True
-
-# autodoc_member_order = "bysource"  # "groupwise"
-# autodoc_inherit_docstrings = True
-# add_module_names = False
-# autoclass_content = "both"
-# html_show_sourcelink = False
-# set_type_checking_flag = True
-
-# Napoleon options for docstring parsing:
-# http://www.sphinx-doc.org/en/stable/ext/napoleon.html
-# napoleon_google_docstring = True
-# napoleon_numpy_docstring = True
-# napoleon_include_init_with_doc = True
-# napoleon_include_private_with_doc = True
-# napoleon_include_special_with_doc = True
-# napoleon_use_admonition_for_examples = True
-# napoleon_use_admonition_for_notes = True
-# napoleon_use_admonition_for_references = True
-# napoleon_use_ivar = True
-# napoleon_use_param = True
-# napoleon_use_rtype = True
-# napoleon_use_keyword = True
-# napoleon_preprocess_types = True
-# napoleon_attr_annotations = True
 
 templates_path = ["_templates"]
 exclude_patterns = []

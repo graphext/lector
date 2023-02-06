@@ -16,22 +16,23 @@
     // Python
     "[python]": {
         "editor.formatOnSave": true,
-        // Black does not support (partial) formatting on paste :(
         "editor.formatOnPaste": false,
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": true
+            "source.organizeImports": true,
+            "source.fixAll": true,
         }
     },
-
+    "python.autoComplete.addBrackets": true,
     // Python auto-formatting: only enable here.
     // Uses config in pyproject.toml automatically.
     "python.formatting.provider": "black",
-
     // Python linting
     "python.linting.enabled": true,
-    "python.linting.flake8Enabled": true,
+    "python.linting.pycodestyleEnabled": false,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": false,
     "python.linting.mypyArgs": [
       "--ignore-missing-imports",
       "--follow-imports=silent",

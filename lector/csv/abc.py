@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 from abc import ABC, abstractmethod
+from contextlib import suppress
 from csv import DictReader
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,9 +75,9 @@ class Reader(ABC):
 
         if isinstance(buffer, (str, Path)):
             if isinstance(self.encoding, str):
-                buffer = open(buffer, "r", encoding=self.encoding, errors="replace")
+                buffer = open(buffer, encoding=self.encoding, errors="replace")  # noqa: SIM115
             else:
-                buffer = open(buffer, "rb")
+                buffer = open(buffer, "rb")  # noqa: SIM115
 
         if is_empty(buffer):
             raise EmptyFileError(f"The passed object ({buffer}) contained 0 bytes of data.")
@@ -96,17 +97,19 @@ class Reader(ABC):
         """Detect the number of junk lines at the start of the file."""
         if self.preamble is None:
             return 0
-        elif isinstance(self.preamble, (int, float)):
+        if isinstance(self.preamble, (int, float)):
             return self.preamble
-        elif issubclass(self.preamble, Preambles):
+        if issubclass(self.preamble, Preambles):
             return Preambles.detect(buffer, log=self.log) or 0
+
+        return 0
 
     def detect_dialect(self, buffer: TextIO) -> dict:
         """Detect separator, quote character etc."""
         if isinstance(self.dialect, DialectDetector):
             return self.dialect.detect(buffer)
 
-        elif isinstance(self.dialect, dict):
+        if isinstance(self.dialect, dict):
             return Dialect(**self.dialect)
 
         return self.dialect
@@ -115,16 +118,15 @@ class Reader(ABC):
     def detect_columns(cls, buffer: TextIO, dialect: Dialect) -> list[str]:
         """Extract column names from buffer pointing at header row."""
         reader = DictReader(buffer, dialect=dialect.to_builtin())
-        try:
+        with suppress(StopIteration):
             _ = next(reader)
-        except StopIteration:
-            pass
+
         return reader.fieldnames
 
     def analyze(self):
         """Infer all parameters required for reading a csv file."""
-
         self.buffer = self.decode(self.fp)
+        cursor = self.buffer.tell()
 
         with reset_buffer(self.buffer):
             self.preamble = self.detect_preamble(self.buffer)
@@ -147,6 +149,8 @@ class Reader(ABC):
 
         if self.log:
             LOG.info(pformat(self.format))
+
+        self.buffer.seek(cursor)
 
     @abstractmethod
     def parse(self, *args, **kwds) -> Any:

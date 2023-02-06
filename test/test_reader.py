@@ -1,5 +1,6 @@
 """Test CSV readers."""
 import io
+import sys
 from csv import get_dialect
 
 import pytest
@@ -15,8 +16,8 @@ from .test_formats import PREAMBLES, with_delimiter
 from .utils import equal
 
 SHAPES = [
-    # (0, 1), # hypothesis_csv cannot generate a 0 row file
-    # (1, 0), # This produces an empty file ("\r\n\r\n")
+    # (0, 1), # hypothesis_csv cannot generate a 0 row file  # noqa
+    # (1, 0), # This produces an empty file ("\r\n\r\n")  # noqa
     (1, 1),
     (1, 3),
     (3, 1),
@@ -38,12 +39,6 @@ def test_empty(csv: str):
 # @given(data=data())
 # @pytest.mark.parametrize("shape", SHAPES)
 # def test_parsed_shapes(shape, data):
-#     n_rows, n_cols = shape
-#     strategy = make_csv(lines=n_rows, header=n_cols)
-#     csv = data.draw(strategy)
-#     tbl = arrow_reader(csv).read()
-
-#     assert len(tbl) == n_rows
 
 
 @given(data=data())
@@ -91,4 +86,6 @@ def test_all(codec, preamble, dialect, data):
         assert equal(exp_dialect, reader.format.dialect, extra=csv)
 
     except UnicodeEncodeError:
-        pass
+        print(f"FAILED ON CSV:\n{csv}")
+        sys.exit()
+        raise

@@ -5,6 +5,7 @@ list columns, timestamps in non-ISO formats, or semantic types such as URLs, nat
 text etc.
 """
 from .abc import Converter, Registry
+from .bools import Boolean
 from .cast import Autocast, Cast
 from .lists import List
 from .numbers import Number
@@ -15,6 +16,7 @@ from .timestamps import Timestamp
 
 __all__ = [
     "Autocast",
+    "Boolean",
     "Cast",
     "Converter",
     "Registry",

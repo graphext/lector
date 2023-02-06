@@ -50,7 +50,7 @@ def maybe_cast_lists(
 
             return result
         except Exception:
-            pass
+            pass  # noqa
 
     return None
 
@@ -82,13 +82,11 @@ def maybe_parse_lists(
 @dataclass
 @Registry.register
 class List(Converter):
-
     type: str | DataType | None = None
     infer_urls: bool = True
     threshold_urls: float = 1.0
 
     def convert(self, array: Array) -> Conversion | None:
-
         if not pat.is_string(array.type):
             return None
 

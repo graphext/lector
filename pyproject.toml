@@ -12,7 +12,7 @@ omit = [
 
 [tool.black]
 line-length = 100
-target-version = ['py310']
+target-version = ['py39']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -32,7 +32,102 @@ exclude = '''
 )/
 '''
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 100
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+src = ["libs/*"]
+
+select = [
+    "E", # Pycodestyle errors
+    "W", # Pycodestyle warnings
+    "F", # Pyflakes
+    "UP", # Pyupgrade
+    "S", # Bandit (security),
+    "B", # Bugbear
+    "C4",  # Comprehensions
+    "ISC",  # Implicit string concat
+    "ICN",  # Import conventions
+    "I001", # isort
+    "Q",  # Quotes
+    "SIM",  # Simplify
+    "ERA",  # eradicate (commented out code)
+    "PIE",
+    "PD",  # Pandas
+    "PLC",
+    "PLE",
+    "PLR",
+    "PLW",  # Pylint extensions
+    "RET",  # Return statements
+]
+
+# Never enforce these
+ignore = [
+    "E731",  # Do not assign a lambda expression, use a def
+    "E741",  # Ambiguous variable names, e.g. l/1, O/0. Just use appropriate font.
+    "D",     # All docstrings for now.
+    "S101",  # Don't warn for asserts in pytest
+    "S105",  # HardcodedPasswordString
+    "S106",  # HardcodedPasswordFuncArg
+    "S107",  # HardcodedPasswordDefault
+    "PD901",  # df as variable name
+    "PD011",  # Use .to_numpy() instead of .values
+    "PD015",  # Use .merge instead of pd.merge
+    "PLR0913",  # Too many arguments (in function signatures)
+    "RET501",  # explicit `return None` if only possible return value
+    "RET504",  # Unnecessary variable assignment before `return` statement
+    "SIM108",  # Ternary instead of if/else (doesn't take into account line length)
+]
+
+# Never try to fix these
+unfixable = []
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.per-file-ignores]
+# "__init__.py" = ["E402"]
+# "test/" = ["S101"] # Don't warn for asserts in pytest, doesn't work for paths
+
+[tool.ruff.flake8-annotations]
+mypy-init-return = true
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.ruff.flake8-import-conventions]
+[tool.ruff.flake8-import-conventions.extend-aliases]
+"dask.dataframe" = "dd"
+"pyarrow" = "pa"
+
+[tool.ruff.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
+[tool.ruff.isort]
+known-first-party = ["lector"]
+
+[tool.ruff.flake8-bugbear]
+extend-immutable-calls = ["typer.Option"]

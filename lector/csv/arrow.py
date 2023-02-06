@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from io import BytesIO, TextIOBase
-from typing import Dict, Iterable, Union
+from typing import Union
 
 import pyarrow as pa
 import pyarrow.csv as pacsv
@@ -12,7 +13,9 @@ from ..log import LOG
 from ..utils import MISSING_STRINGS, ensure_type
 from .abc import EmptyFileError, Format, Reader
 
-TypeDict = Dict[str, Union[str, DataType]]
+TypeDict = dict[str, Union[str, DataType]]
+
+MAX_MSG_LEN = 100  # characters
 
 
 class ArrowReader(Reader):
@@ -20,8 +23,8 @@ class ArrowReader(Reader):
 
     @staticmethod
     def skip_invalid_row(row: InvalidRow) -> str:
-        if row.text and len(row.text) > 100:
-            row = row._replace(text=row.text[:100])
+        if row.text and len(row.text) > MAX_MSG_LEN:
+            row = row._replace(text=row.text[:MAX_MSG_LEN])
 
         LOG.warning(f"Skipping row {row}")
         return "skip"
@@ -63,7 +66,6 @@ class ArrowReader(Reader):
         co = config["convert_options"]
 
         if types is not None:
-
             if isinstance(types, (str, DataType)):
                 types = {col: ensure_type(types) for col in self.columns}
             elif isinstance(types, dict):
@@ -72,14 +74,12 @@ class ArrowReader(Reader):
             co["column_types"] = types
 
         if timestamp_formats is not None:
-
             if not isinstance(timestamp_formats, list):
                 timestamp_formats = [timestamp_formats]
 
             co["timestamp_parsers"] = timestamp_formats
 
         if null_values is not None:
-
             if isinstance(null_values, str):
                 null_values = [null_values]
             else:
@@ -101,9 +101,8 @@ class ArrowReader(Reader):
                 convert_options=pa.csv.ConvertOptions(**co),
             )
         except pa.ArrowInvalid as exc:
-
             if "Empty CSV file or block" in (msg := str(exc)):
-                raise EmptyFileError(msg)
+                raise EmptyFileError(msg) from None
 
             raise
 

@@ -31,9 +31,9 @@ def clean_float_pattern(thousands: str = ",") -> str:
     if thousands == ",":
         # Match a "+" at the beginning and commas anywhere
         return r"^\+|,"
-    else:
-        # Match a "+" at the beginning and a period anywhere
-        return r"^\+|\."
+
+    # Match a "+" at the beginning and a period anywhere
+    return r"^\+|\."
 
 
 def maybe_parse_ints(
@@ -70,7 +70,6 @@ def maybe_parse_ints(
         sign = pac.if_else(is_negative, -1, 1)
         return pac.multiply_checked(num, sign)
     except Exception:
-
         if allow_unsigned:
             n_negative = pac.sum(is_negative).as_py()
 
@@ -112,11 +111,6 @@ def maybe_parse_floats(arr: Array, threshold: float = 0.5, decimal: str = ".") -
 
     """
     if pac.sum(pac.count_substring(arr, pattern=decimal)).as_py() == 0:
-        # print(
-        #     "Won't parse as float because no value seems to contain decimals! "
-        #     "If values haven't been parsed as ints before, they are probably too big "
-        #     "and should be treated as identifiers (IDs)."
-        # )
         return None
 
     thousands = "," if decimal == "." else "."
@@ -149,8 +143,8 @@ def maybe_truncate_floats(arr: Array, threshold: float = 1.0) -> Array | None:
     try:
         if pac.min(arr).as_py() >= 0:
             return pac.cast(trunc, pa.uint64())
-        else:
-            return pac.cast(trunc, pa.int64())
+
+        return pac.cast(trunc, pa.int64())
     except pa.ArrowInvalid as exc:
         LOG.error("Failed to convert floats to ints: " + str(exc))
         return None
@@ -173,7 +167,6 @@ class Downcast(Converter):
     """Attempts truncation of floats to ints and then downcasting of ints."""
 
     def convert(self, array: Array) -> Conversion | None:
-
         if pat.is_floating(array.type):
             array = maybe_truncate_floats(array, self.threshold)
             if array is None:
@@ -196,9 +189,7 @@ class Number(Converter):
     max_int: int | None = None
 
     def convert(self, array: Array) -> Conversion | None:
-
         if pat.is_string(array.type):
-
             converted = maybe_parse_ints(
                 array,
                 threshold=self.threshold,
@@ -221,9 +212,12 @@ class Number(Converter):
         if converted is None:
             return None
 
-        if pat.is_integer(converted.result.type) and self.max_int is not None:
-            if pac.max(converted.result).as_py() > self.max_int:
-                return None
+        if (
+            pat.is_integer(converted.result.type)
+            and self.max_int is not None
+            and pac.max(converted.result).as_py() > self.max_int
+        ):
+            return None
 
         converted.meta = {"semantic": f"number[{dtype_name(converted.result)}]"}
         return converted

@@ -18,9 +18,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from csv import QUOTE_MINIMAL, QUOTE_NONE
+from csv import QUOTE_MINIMAL, QUOTE_NONE, Sniffer, get_dialect
 from csv import Dialect as PyDialect
-from csv import Sniffer, get_dialect
 from dataclasses import dataclass
 from itertools import islice
 from typing import TextIO
@@ -123,7 +122,6 @@ class PySniffer(DialectDetector):
         sniffer.preferred = []
 
         for n_rows in (self.n_rows, 1):
-
             try:
                 buffer.seek(pos)
                 sample = "\n".join(islice(buffer, n_rows))
@@ -132,11 +130,11 @@ class PySniffer(DialectDetector):
                 # To read(!) a CSV reliably, we must have either doublequote=True or an escapechar,
                 # yet Python's sniffer may return doublequote=False and no escapechar if nothing
                 # was escaped in any way in the given CSV.
-                dialect.doublequote = False if dialect.escapechar is not None else True
+                dialect.doublequote = dialect.escapechar is None
 
                 # The lineterminator is always returned as "\r\n", but that's ok since parsers
                 # tend to ignore it anyways
-                # dialect.lineterminator = ...
+                # dialect.lineterminator = ...  # noqa
 
                 # May detect that sample has no quotes, but if correct, parsing with minimal quote
                 # option will still work, and if detection was erroneous, assuming minimal quoting
@@ -146,10 +144,11 @@ class PySniffer(DialectDetector):
 
                 return Dialect.from_builtin(dialect)
             except Exception:
-                pass
+                pass  # noqa
 
         if self.log:
             LOG.info("Falling back to default dialect...")
+
         return Dialect()
 
 

@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import csv
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import Iterable, TextIO
+from typing import TextIO
 
 from ..log import LOG
 
@@ -81,7 +82,6 @@ class Brandwatch(PreambleDetector):
     """
 
     def detect(self, buffer: TextIO) -> int:
-
         rows = [row.strip() for row in islice(buffer, self.n_rows)]
 
         for i, row in enumerate(rows):
@@ -149,12 +149,10 @@ class GoogleAds(Fieldless):
     """
 
     def detect(self, buffer: TextIO) -> int:
-
         cursor = buffer.tell()
         skip = super().detect(buffer)
 
         if skip:
-
             buffer.seek(cursor)
             rows = [row.strip() for row in islice(buffer, self.n_rows)]
 

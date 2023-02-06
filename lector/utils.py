@@ -9,8 +9,14 @@ from time import perf_counter
 from typing import Union
 
 import pyarrow as pa
-from pyarrow import type_for_alias  # noqa: F401
-from pyarrow import Array, ChunkedArray, DataType, Schema, Table
+from pyarrow import (
+    Array,
+    ChunkedArray,
+    DataType,
+    Schema,
+    Table,
+    type_for_alias,  # noqa: F401
+)
 from pyarrow import compute as pac
 from pyarrow import types as pat
 from pyarrow.lib import ensure_type  # noqa: F401
@@ -98,9 +104,8 @@ def dtype_name(arr: Array):
     type = arr.type
     name = str(type)
 
-    if pat.is_integer(type):
-        if arr.null_count > 0:
-            name = name.replace("i", "I").replace("u", "U")
+    if pat.is_integer(type) and arr.null_count > 0:
+        name = name.replace("i", "I").replace("u", "U")
 
     return name
 
@@ -129,7 +134,6 @@ def proportion_unique(arr: Array) -> float:
 
 
 def proportion_trueish(arr: Array) -> float:
-
     if len(arr) == 0:
         # Still means we had no trueish values
         return 0
@@ -160,8 +164,8 @@ def sorted_value_counts(arr: Array, order: str = "descending", top_n: int | None
     order = pac.array_sort_indices(counts, order="descending")
     if top_n is None:
         return valcnt.take(order)
-    else:
-        return valcnt.take(order[:top_n])
+
+    return valcnt.take(order[:top_n])
 
 
 def map_values(arr: Array, map: dict, unknown: str = "keep") -> Array:
@@ -188,8 +192,8 @@ def categories(array: Array | ChunkedArray) -> Array:
     if isinstance(array, ChunkedArray):
         array = array.unify_dictionaries()
         return array.chunk(0).dictionary
-    else:
-        return array.dictionary
+
+    return array.dictionary
 
 
 def schema_diff(s1: Schema, s2: Schema) -> dict[str, tuple[DataType, DataType]]:
@@ -225,7 +229,6 @@ class Timer:
 
 
 if PANDAS_INSTALLED:
-
     # Arrow currently doesn't have any way to map its integer types to pandas
     # extension dtypes depending on whether a columns has missing values or not
 
@@ -253,31 +256,3 @@ if PANDAS_INSTALLED:
         df = pd.concat(columns, axis=1)
         df.columns = table.column_names
         return df
-
-
-# def test_numeric_predicates():
-#     """Check which number representations can be recognized/converted in Python/Arrow.
-
-#     It seems trivial, but the nomenclature of string->numeric predicates, i.e. of identifying
-#     strings as representing specific types of numbers is rather counter-intuitive:
-
-#     - "decimal" doesn't refer to proper decimal numbers (i.e. including fractions), but to
-#       pure and positive(!) integers only. In both Python and Arrow.
-#     - "digit" in Python consists of decimals plus subscript and superscript characters.
-#       But not in Arrow, where there doesn't seem to be a difference between decimal and digit.
-#     - "numeric" in both Python and Arrow includes sub/superscripts as well as "vulgar"
-#       fractions, special numeral characters etc.
-
-#     In other words, none can be used to check for either conversion to integers nor float, as
-#     none supports indication of sign (+/-), nor decimals.
-#     """
-#     ns = ["123", "1.23", "1,123.45", "²", "⅓"]
-#     for n in ns:
-#         print(n)
-#         print("Python:", n.isdecimal(), n.isdigit(), n.isnumeric())
-#         print("Arrow:", pac.utf8_is_decimal(n), pac.utf8_is_digit(n), pac.utf8_is_numeric(n))
-#         try:
-#             pa.scalar(n, pa.string()).cast(pa.float64())
-#             print("Casteable to number(float).")
-#         except Exception:
-#             print("Cannot be cast to number!")

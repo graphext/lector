@@ -80,9 +80,9 @@ class Chardet(EncodingDetector):
         if encoding:
             if confidence > self.confidence_threshold:
                 return encoding
-            else:
-                if any(label in encoding.lower() for label in ("windows", "iso-8859")):
-                    # Iso-like, will use windows-1250 as super set for special chars
-                    return "windows-1250"
+
+            if any(label in encoding.lower() for label in ("windows", "iso-8859")):
+                # Iso-like, will use windows-1250 as super set for special chars
+                return "windows-1250"
 
         return "windows-1250"

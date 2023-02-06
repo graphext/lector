@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Union
+from typing import Union
 
 import pyarrow as pa
 from pyarrow import Array, ChunkedArray, Table
@@ -13,7 +14,7 @@ from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
 from .strings import Category
 
-Config = Dict[str, dict]
+Config = dict[str, dict]
 """An (ordered) dict of converter class names and corresponding parameters."""
 
 Converters = Union[Config, Iterable[Converter], None]
@@ -21,6 +22,7 @@ Converters = Union[Config, Iterable[Converter], None]
 
 DEFAULT_CONVERTERS: Config = {
     "number": {"threshold": 0.95, "allow_unsigned_int": True, "decimal": "."},
+    "boolean": {"threshold": 1.0},
     "list": {"threshold": 0.95, "threshold_urls": 0.8},
     "timestamp": {"threshold": 0.95},
     "text": {"threshold": 0.8, "min_unique": 0.1},
@@ -60,12 +62,10 @@ class CastStrategy(ABC):
 
     def cast_table(self, table: Table) -> Table:
         """Takes care of updating fields, including metadata etc."""
-
         schema = table.schema
         columns = self.columns or table.column_names
 
         for name in track(columns, desc="Autocasting", disable=not self.log):
-
             array = table.column(name)
             conv = self.cast_array(array, name=name)
 
@@ -87,7 +87,8 @@ class CastStrategy(ABC):
         """Shouldn't be necessary, but @singledispatchmethod doesn't work with inheritance."""
         if isinstance(data, (Array, ChunkedArray)):
             return self.cast_array(data)
-        elif isinstance(data, Table):
+
+        if isinstance(data, Table):
             return self.cast_table(data)
 
         raise ValueError(f"Can only cast arrays or tables, got {type(data)}!")
@@ -107,17 +108,18 @@ class Autocast(CastStrategy):
     )
 
     def cast_array(self, array: Array | ChunkedArray, name: str | None = None) -> Conversion:
-
         name = name or ""
 
         for converter in self.converters:
-
             sample = array.drop_null().slice(length=self.n_samples)
-            if len(sample) > 0 and converter.convert(sample):
-                if result := converter.convert(array):
-                    if self.log:
-                        LOG.debug(f'Converted column "{name}" with converter\n{iformat(converter)}')
-                    return result
+            if (
+                len(sample) > 0
+                and converter.convert(sample)
+                and (result := converter.convert(array))
+            ):
+                if self.log:
+                    LOG.debug(f'Converted column "{name}" with converter\n{iformat(converter)}')
+                return result
 
         if self.fallback and pa.types.is_string(array.type) or pa.types.is_null(array.type):
             LOG.warning(
@@ -137,10 +139,9 @@ class Cast:
     log: bool = False
 
     def cast(self, table: Table) -> Table:
-
         schema = table.schema
 
-        for i, (name, converter) in track(
+        for _, (name, converter) in track(
             enumerate(self.converters.items()),
             total=len(self.converters),
             desc="Explicit casting",

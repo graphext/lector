@@ -14,7 +14,6 @@ from .types.cast import CastStrategy
 
 
 class Inference(str, Enum):
-
     Native = "Native"
     Auto = "Auto"
     Disable = "Disable"
@@ -47,8 +46,8 @@ def read_csv(
     if to_pandas:
         if utils.PANDAS_INSTALLED:
             return utils.to_pandas(tbl)
-        else:
-            raise ("It seems pandas isn't installed in this environment!")
+
+        raise Exception("It seems pandas isn't installed in this environment!")
 
     return tbl
 
@@ -69,4 +68,4 @@ __all__ = [
     "table_view",
 ]
 
-__version__ = "0.2.14"
+__version__ = "0.2.15"

@@ -13,7 +13,9 @@ CLI = typer.Typer()
 
 @CLI.command()
 def read(
-    fp: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, resolve_path=True),
+    fp: Path = typer.Argument(  # noqa: B008
+        ..., exists=True, file_okay=True, dir_okay=False, resolve_path=True
+    ),
     types: Optional[Inference] = typer.Option(Inference.Auto),
     log: Optional[bool] = typer.Option(False),
 ):

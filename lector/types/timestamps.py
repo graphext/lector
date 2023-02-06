@@ -127,7 +127,7 @@ def maybe_parse_known_timestamps(
 ) -> Array | None:
     """Helper for parsing with known format and no fractional seconds."""
 
-    if threshold == 1.0:
+    if threshold == 1.0:  # noqa: PLR2004
         try:
             return pac.strptime(arr, format=format, unit=unit)
         except Exception:
@@ -151,8 +151,9 @@ def maybe_parse_timestamps(
     return_format: bool = False,
 ) -> Array | None:
     """Parse lists of strings as dates with format inference."""
+    min_prop_frac_secs = 0.1
 
-    if proportion_fractional_seconds(arr) > 0.1:
+    if proportion_fractional_seconds(arr) > min_prop_frac_secs:
         frac = pac.extract_regex(arr, RE_FRATIONAL_SECONDS)
         frac = pac.struct_field(frac, indices=[0])
         frac = fraction_as_duration(frac)
@@ -189,7 +190,6 @@ def maybe_parse_timestamps(
 @dataclass
 @Registry.register
 class Timestamp(Converter):
-
     format: str | None = None
     """When None, default formats are tried in order."""
     unit: str = UNIT
@@ -198,7 +198,6 @@ class Timestamp(Converter):
     """Whether time/date-only arrays should be converted to timestamps."""
 
     def convert(self, array: Array) -> Conversion | None:
-
         meta = {"semantic": "date"}
 
         if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:

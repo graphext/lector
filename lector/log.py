@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Iterable, Sequence
 from functools import partial
-from typing import Iterable, Sequence, TypeVar
+from typing import TypeVar
 
 import pyarrow as pa
 import pyarrow.types as pat
@@ -123,8 +124,7 @@ def type_view(type: DataType) -> str:
     if pat.is_dictionary(type):
         if type.ordered:
             return f"dict<{type.value_type}, ordered>"
-        else:
-            return f"dict<{type.value_type}>"
+        return f"dict<{type.value_type}>"
     return str(type)
 
 
@@ -178,7 +178,6 @@ def schema_comparison(
         t.add_column("Meta")
 
     for field in s2:
-
         if have_meta:
             field_meta = meta.get(field.name)
             field_meta = Pretty(field_meta) if field_meta else ""
@@ -284,8 +283,8 @@ def table_view(
         n_nulls = table.column(column).null_count
         if n_nulls:
             return Text.from_markup(f"[{style} bold]nulls {n_nulls}[/]")
-        else:
-            return Text.from_markup(f"[{style}]nulls 0[/]")
+
+        return Text.from_markup(f"[{style}]nulls 0[/]")
 
     types = [type_repr(sample, column) for column in sample.column_names]
     nulls = [null_repr(sample, column) for column in sample.column_names]

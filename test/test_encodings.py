@@ -71,12 +71,11 @@ def test_simple_roundtrip(codec):
         detected = Chardet().detect(io.BytesIO(encoded))
         assert codecs_equal(codec, detected)
     except Exception:
-        pass
+        pass  # noqa
 
 
 @pytest.mark.parametrize("example", CODEC_SAMPLES)
 def test_roundtrips(example):
-
     text, codec, _, _ = example
     encoded = text.encode(codec)
     detected = Chardet().detect(io.BytesIO(encoded))

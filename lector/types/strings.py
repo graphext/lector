@@ -47,7 +47,7 @@ def is_text(
     """Check for natural language-like texts using criteria like lengths, number of spaces."""
     is_long = pac.greater_equal(pac.utf8_length(arr), min_length)
     # This regex seems to be very slow
-    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)
+    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)  # noqa
     has_spaces = pac.greater_equal(pac.count_substring(arr, pattern=" "), min_spaces)
     textlike = pac.and_(is_long, has_spaces)
 
@@ -86,7 +86,7 @@ def sufficient_texts(
         return False
 
     # This regex seems to be very slow
-    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)
+    # has_spaces = pac.greater_equal(pac.count_substring_regex(arr, pattern=r"\s"), min_spaces)  # noqa
     has_spaces = pac.greater_equal(pac.count_substring(arr, pattern=" "), min_spaces)
     if proportion_trueish(has_spaces) < threshold:
         return False
@@ -141,10 +141,9 @@ class Text(Converter):
         if not pat.is_string(array.type):
             return None
 
-        if proportion_unique(array) >= self.min_unique:
-            if proportion_text(array) >= self.threshold:
-                # if sufficient_texts(array, self.threshold):
-                return Conversion(array, meta={"semantic": "text"})
+        if proportion_unique(array) >= self.min_unique and proportion_text(array) >= self.threshold:
+            # if sufficient_texts(array, self.threshold):
+            return Conversion(array, meta={"semantic": "text"})
 
         return None
 
@@ -202,7 +201,6 @@ class SexMapper:
     def infer_values(self, values: tuple[str, str]) -> dict:
         """Infer which values encode female/male categories."""
         if len(values[0]) == 1 and len(values[1]) == 1 and "m" in values:
-
             f_label, m_label = self.labels[Sex.Female], self.labels[Sex.Male]
 
             if "f" in values:
@@ -225,11 +223,12 @@ class SexMapper:
 
 def maybe_sex(arr: Array) -> tuple[str, str] | None:
     """Check if the two most common values are sex-like and return them."""
+    top_n = 2
     lower = pac.utf8_lower(arr)
-    top2 = sorted_value_counts(lower, top_n=2)
+    top2 = sorted_value_counts(lower, top_n=top_n)
     values = top2.field("values").to_pylist()
 
-    if len(values) == 2:
+    if len(values) == top_n:
         mapper = SexMapper(values)
         LOG.debug(f"Sex mapping: {mapper.map}")
         mapped = map_values(lower, mapper.map)
