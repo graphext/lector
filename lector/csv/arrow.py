@@ -10,7 +10,7 @@ from pyarrow import DataType
 from pyarrow.csv import InvalidRow
 
 from ..log import LOG
-from ..utils import MISSING_STRINGS, ensure_type
+from ..utils import MISSING_STRINGS, ensure_type, uniquify
 from .abc import EmptyFileError, Format, Reader
 
 TypeDict = dict[str, Union[str, DataType]]
@@ -100,6 +100,7 @@ class ArrowReader(Reader):
                 parse_options=pa.csv.ParseOptions(**po),
                 convert_options=pa.csv.ConvertOptions(**co),
             )
+            tbl = tbl.rename_columns(uniquify(tbl.column_names))
         except pa.ArrowInvalid as exc:
             if "Empty CSV file or block" in (msg := str(exc)):
                 raise EmptyFileError(msg) from None

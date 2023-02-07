@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from collections import namedtuple
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from functools import singledispatch
 from time import perf_counter
@@ -256,3 +257,19 @@ if PANDAS_INSTALLED:
         df = pd.concat(columns, axis=1)
         df.columns = table.column_names
         return df
+
+
+def uniquify(items: Sequence[str]) -> Iterator[str]:
+    """Add suffixes to inputs strings if necessary to ensure is item is unique."""
+    seen = set()
+
+    for item in items:
+        newitem = item
+
+        suffix = 0
+        while newitem in seen:
+            suffix += 1
+            newitem = f"{item}_{suffix}"
+
+        seen.add(newitem)
+        yield newitem
