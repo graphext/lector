@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from csv import reader as csvreader
 from dataclasses import dataclass
 
 import pyarrow as pa
@@ -10,10 +12,28 @@ from pyarrow import Array, DataType
 from ..log import LOG
 from ..utils import ensure_type, min_max, proportion_trueish, smallest_int_type
 from .abc import Conversion, Converter, Registry
-from .regex import RE_LIST_CLEAN, RE_LIST_LIKE
+from .regex import RE_LIST_LIKE, RE_LIST_PARENS
 from .strings import proportion_url
 
 LIST_TYPES: tuple[str] = (pa.int64(), pa.float64(), pa.timestamp(unit="ms"))
+
+
+def parse_lists(
+    strings: Iterator[str],
+    clean_elems: bool = False,
+    skipinitialspace: bool = True,
+    **kwds,
+) -> Iterator[list[str]]:
+    """Parse strings as lines of CSV, to separate it into individual fields.
+
+    Respects the separator being escaped when enclosed in quotes etc.
+    """
+    reader = csvreader(strings, skipinitialspace=skipinitialspace, **kwds)
+    if not clean_elems:
+        yield from reader
+    else:
+        for parsed in reader:
+            yield [elem.strip("' ") for elem in parsed]
 
 
 def proportion_listlike(arr: Array) -> float:
@@ -62,12 +82,13 @@ def maybe_parse_lists(
     allow_empty: bool = True,
 ) -> Array | None:
     """Parse strings into list, optionally with (inferrable) element type."""
-
     if proportion_listlike(arr.drop_null()) < threshold:
         return None
 
-    content = pac.replace_substring_regex(arr, pattern=RE_LIST_CLEAN, replacement="")
-    result = pac.split_pattern(content, ",")
+    content = pac.replace_substring_regex(arr, pattern=RE_LIST_PARENS, replacement="")
+    parsed = parse_lists((s.as_py() if s.is_valid else "" for s in content), clean_elems=True)
+    result = pa.array(parsed, size=len(content), type=pa.list_(pa.string()))
+    result = pac.if_else(arr.is_null(), pa.NA, result)  # Keep original nulls
 
     if allow_empty:
         was_empty = pac.equal(arr, "[]")

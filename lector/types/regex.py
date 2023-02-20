@@ -14,6 +14,9 @@ RE_LIST_LIKE: str = r"^[\(\[\|\{<].*[\)\]\|\>}]$"
 RE_LIST_CLEAN: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$|['\"\s]"
 """Remove all parenthesis-like characters from start and end. Whitespace and quotes too."""
 
+RE_LIST_PARENS: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$"
+"""Remove all parenthesis-like characters from start and end."""
+
 RE_URL = (
     r"^(http://www\.|https://www\.|http://|https://)?"  # http:// or https://
     r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...

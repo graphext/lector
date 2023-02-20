@@ -7,7 +7,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from functools import singledispatch
 from time import perf_counter
-from typing import Union
+from typing import Callable, Union
 
 import pyarrow as pa
 from pyarrow import (
@@ -195,6 +195,15 @@ def categories(array: Array | ChunkedArray) -> Array:
         return array.chunk(0).dictionary
 
     return array.dictionary
+
+
+def with_flatten(arr: Array, func: Callable):
+    """Apply a compute function to all elements of flattened (and restored) lists."""
+    isna = pac.is_null(arr)
+    flat = pac.list_flatten(arr)
+    transformed = func(flat)
+    nested = pa.ListArray.from_arrays(arr.offsets, transformed)
+    return pac.if_else(isna, None, nested)
 
 
 def schema_diff(s1: Schema, s2: Schema) -> dict[str, tuple[DataType, DataType]]:
