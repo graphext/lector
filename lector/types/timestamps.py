@@ -98,6 +98,7 @@ def fraction_as_duration(arr: Array) -> Array:
     if pat.is_floating(arr.type):
         # Assume values in [0,1]: convert to nanoseconds
         arr = pac.multiply(arr, 1e9)
+        arr = pac.trunc(arr)
         arr = pac.cast(arr, pa.int64())
 
     return pac.cast(arr, pa.duration("ns"))
@@ -113,7 +114,7 @@ def find_format(ts: TimestampScalar) -> str | None:
         try:
             pac.strptime(ts, format=fmt, unit="s")
             return fmt
-        except Exception:
+        except Exception:  # noqa: S112
             continue
 
     return None
