@@ -22,7 +22,7 @@ from functools import lru_cache
 import pyarrow as pa
 import pyarrow.compute as pac
 import pyarrow.types as pat
-from pyarrow import Array, TimestampScalar
+from pyarrow import Array, TimestampScalar, TimestampType
 
 from ..log import LOG
 from ..utils import proportion_trueish
@@ -191,6 +191,8 @@ def maybe_parse_timestamps(
 @dataclass
 @Registry.register
 class Timestamp(Converter):
+    """Convert string or time-like arrays to timestamp type."""
+
     format: str | None = None
     """When None, default formats are tried in order."""
     unit: str = UNIT
@@ -198,14 +200,18 @@ class Timestamp(Converter):
     convert_temporal: bool = True
     """Whether time/date-only arrays should be converted to timestamps."""
 
-    def convert(self, array: Array) -> Conversion | None:
-        meta = {"semantic": "date"}
+    @staticmethod
+    def meta(dt: TimestampType) -> dict[str, str]:
+        return {"semantic": f"date[{dt.unit}, {dt.tz or ''}]"}
 
+    def convert(self, array: Array) -> Conversion | None:
         if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
-            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False), meta=meta)
+            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+            return Conversion(result, self.meta(result.type))
 
         if pat.is_timestamp(array.type) and array.type.unit != self.unit:
-            return Conversion(array.cast(pa.timestamp(unit=self.unit), safe=False), meta=meta)
+            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+            return Conversion(result, self.meta(result.type))
 
         if not pat.is_string(array.type):
             return None
@@ -221,9 +227,7 @@ class Timestamp(Converter):
                 result = None
 
         if result is not None:
-            converted, format = result, "arrow"
-            meta["format"] = format
-            return Conversion(converted, meta=meta)
+            return Conversion(result, self.meta(result.type) | {"format": "arrow"})
 
         result = maybe_parse_timestamps(
             array,
@@ -234,8 +238,7 @@ class Timestamp(Converter):
         )
 
         if result is not None:
-            converted, format = result
-            meta["format"] = format
-            return Conversion(converted, meta=meta)
+            result, format = result
+            return Conversion(result, self.meta(result.type) | {"format": format})
 
         return None
