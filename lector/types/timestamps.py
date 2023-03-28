@@ -7,6 +7,15 @@ in its compute.strptime function, which doesn't support timezone offsets via
 the %z or %Z directives. Though they do support timezones when importing CSVs
 or casting...
 
+For arrow internals relating to timestamps also see:
+
+- Timezone internals:
+  https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow13TimestampTypeE
+- CSV parsing:
+  https://arrow.apache.org/docs/cpp/csv.html#timestamp-inference-parsing
+- pac.local_time preview:
+  http://crossbow.voltrondata.com/pr_docs/34208/cpp/compute.html#timezone-handling
+
 TODO:
 - Fractional seconds are handled manually, also see
   https://issues.apache.org/jira/browse/ARROW-15883. They are first removed via regex,
@@ -22,7 +31,7 @@ from functools import lru_cache
 import pyarrow as pa
 import pyarrow.compute as pac
 import pyarrow.types as pat
-from pyarrow import Array, TimestampScalar, TimestampType
+from pyarrow import Array, TimestampArray, TimestampScalar, TimestampType
 
 from ..log import LOG
 from ..utils import proportion_trueish
@@ -191,12 +200,55 @@ def maybe_parse_timestamps(
 @dataclass
 @Registry.register
 class Timestamp(Converter):
-    """Convert string or time-like arrays to timestamp type."""
+    """Convert string or time/date-like arrays to timestamp type.
+
+    Note: Arrow will always _parse_ either into UTC or timezone-naive
+    timestamps, but never into specific timezones other than UTC
+    by default. Also, internally all timestamps are represented as UTC.
+    The timezone metadata is then used by other functions to correctly
+    extract for example the local day of the week, time etc.
+
+    Non-UTC timestamps can only be created by specifying the TimestampType
+    explicitly, or using the assume_timezone function.
+
+    When converting to pandas, the timezone is handled correctly.
+
+    When input strings have no explicit timezone information, uses `tz`
+    parameter to interpret them as local to that tz. If tz=None, keeps
+    them as timezone-naive timestamps. If input strings do have explicit
+    timezone information, will be represented internally as UTC (as always),
+    and simply set the tz metadata so that component extraction etc. will
+    use correctly localized moments in time.
+
+    TZ-naive timestamps ["2013-07-17 05:00", "2013-07-17 02:00"]:
+
+        - assume_timezone(NY): interprets input timestamps as local to tz,
+            converts and stores them as UTC, and keeps tz metadata for
+            correct localization when printing/extracting components. I.e.,
+            will convert to [2013-07-17 09:00:00, 2013-07-17 06:00:00] UTC,
+            but when needed, will localize on demand to
+            [2013-07-17 05:00:00-04:00 2013-07-17 02:00:00-04:00].
+
+        - cast with timezone(NY): interprets input timestamps as local to UTC,
+            and stores the tz as metadata for on-demand localization. I.e.,
+            timestamps will be [2013-07-17 05:00:00, 2013-07-17 02:00:00] UTC,
+            and when needed will localize on demand to
+            [2013-07-17 01:00:00-04:00 2013-07-16 22:00:00-04:00].
+
+    TZ-aware timestamps ["2013-07-17 05:00", "2013-07-17 02:00"] UTC:
+
+        - cast with timezone(NY): since input timestamps internally are already
+            always in UTC, keeps them as UTC ["2013-07-17 05:00", "2013-07-17 02:00"],
+            but localizes to cast tz on demand, i.e. to
+            [2013-07-17 01:00:00-04:00 2013-07-16 22:00:00-04:00].
+    """
 
     format: str | None = None
     """When None, default formats are tried in order."""
     unit: str = UNIT
     """Resolution the timestamps are stored with internally."""
+    tz: str = "UTC"
+    """The desired timezone of the timestamps."""
     convert_temporal: bool = True
     """Whether time/date-only arrays should be converted to timestamps."""
 
@@ -205,13 +257,36 @@ class Timestamp(Converter):
         tz = f", {dt.tz}" if dt.tz is not None else ""
         return {"semantic": f"date[{dt.unit}{tz}]"}
 
+    @staticmethod
+    def to_timezone(array: TimestampArray, tz: str | None) -> TimestampArray:
+        if tz:
+            if array.type.tz is None:
+                # Interpret as local moments in given timezone to convert to UTC equivalent
+                return pac.assume_timezone(
+                    array, timezone=tz, ambiguous="earliest", nonexistent="earliest"
+                )
+
+            # Keep UTC internally, simply change what local time is assumed in temporal functions
+            return array.cast(pa.timestamp(unit=array.type.unit, tz=tz))
+
+        if array.type.tz is not None:
+            # Make local timezone-naive. Careful: the following will make the timestamps
+            # naive, but with local time in UTC, not using the existing timezone metadata!
+            # return array.cast(pa.timestamp(unit=array.type.unit, tz=None))  # noqa: ERA001
+            raise NotImplementedError("Pyarrow's to_local() will not be implemented until v12.0!")
+
+        # Keep as timezone-naive timestamps
+        return array
+
     def convert(self, array: Array) -> Conversion | None:
         if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
             result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+            result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type))
 
         if pat.is_timestamp(array.type) and array.type.unit != self.unit:
             result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+            result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type))
 
         if not pat.is_string(array.type):
@@ -228,6 +303,7 @@ class Timestamp(Converter):
                 result = None
 
         if result is not None:
+            result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type) | {"format": "arrow"})
 
         result = maybe_parse_timestamps(
@@ -240,6 +316,7 @@ class Timestamp(Converter):
 
         if result is not None:
             result, format = result
+            result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type) | {"format": format})
 
         return None
