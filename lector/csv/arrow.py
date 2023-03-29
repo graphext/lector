@@ -18,6 +18,18 @@ TypeDict = dict[str, Union[str, DataType]]
 MAX_MSG_LEN = 100  # characters
 
 
+def clean_column_names(names: list[str]) -> list[str]:
+    """Handle empty and duplicate column names."""
+
+    # Arrow doesn't (yet?) have support for CSV dialect "skipinitialspace" option
+    names = [name.strip() for name in names]
+    unnamed = [i for i, x in enumerate(names) if not x]
+    for i, col_idx in enumerate(unnamed):
+        names[col_idx] = f"Unnamed_{i}"
+
+    return uniquify(names)
+
+
 class ArrowReader(Reader):
     """Use base class detection methods to configure a pyarrow.csv.read_csv() call."""
 
@@ -51,7 +63,7 @@ class ArrowReader(Reader):
             },
         }
 
-    def parse(
+    def parse(  # noqa: PLR0912
         self,
         types: str | TypeDict | None = None,
         timestamp_formats: str | list[str] | None = None,
@@ -100,14 +112,12 @@ class ArrowReader(Reader):
                 parse_options=pa.csv.ParseOptions(**po),
                 convert_options=pa.csv.ConvertOptions(**co),
             )
-            tbl = tbl.rename_columns(uniquify(tbl.column_names))
+
+            column_names = clean_column_names(tbl.column_names)
+            tbl = tbl.rename_columns(column_names)
+            return tbl
         except pa.ArrowInvalid as exc:
             if "Empty CSV file or block" in (msg := str(exc)):
                 raise EmptyFileError(msg) from None
 
             raise
-
-        # Arrow doesn't (yet?) have support for CSV dialect "skipinitialspace" option
-        # At least do minimal clean up of column names
-        tbl = tbl.rename_columns([name.strip() for name in tbl.column_names])
-        return tbl
