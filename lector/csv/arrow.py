@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import codecs
+from codecs import StreamRecoder
 from collections.abc import Iterable
-from io import BytesIO, TextIOBase
+from io import SEEK_CUR, BufferedIOBase, TextIOBase
+from pathlib import Path
 from typing import Union
 
 import pyarrow as pa
@@ -11,7 +14,7 @@ from pyarrow.csv import InvalidRow
 
 from ..log import LOG
 from ..utils import MISSING_STRINGS, ensure_type, uniquify
-from .abc import EmptyFileError, Format, Reader
+from .abc import EmptyFileError, FileLike, Format, Reader
 
 TypeDict = dict[str, Union[str, DataType]]
 
@@ -28,6 +31,34 @@ def clean_column_names(names: list[str]) -> list[str]:
         names[col_idx] = f"Unnamed_{i}"
 
     return uniquify(names)
+
+
+def transcode(
+    fp: FileLike,
+    codec_in: str = "utf-8",
+    codec_out: str = "utf-8",
+    errors="replace",
+) -> StreamRecoder:
+    """Safely transcode any readable byte stream from decoder to encoder codecs.
+
+    Arrow only accepts byte streams and optional encoding, but has no option to
+    automatically handle codec errors. It also doesn't seem to like the interface
+    of a Python recoder when the encoding is "utf-16" (rather than more specific
+    "utf-16-le" or "utf-16-be").
+    """
+    if isinstance(fp, (str, Path)):
+        fp = open(fp, "rb")  # noqa: SIM115
+    elif isinstance(fp, TextIOBase):
+        # Not a no-operation! If we read 3 characteres from a text buffer, the underlying binary
+        # buffer might actually read more, since it reads in batches. Which means its internal
+        # cursor might be in advance of the current position in the text buffer read so far.
+        fp.seek(0, SEEK_CUR)
+        fp = fp.buffer
+
+    if not isinstance(fp, BufferedIOBase):
+        raise ValueError(f"Have unsupported input: {type(fp)}")
+
+    return codecs.EncodedFile(fp, data_encoding=codec_out, file_encoding=codec_in, errors=errors)
 
 
 class ArrowReader(Reader):
@@ -102,9 +133,8 @@ class ArrowReader(Reader):
             co["null_values"] = MISSING_STRINGS
 
         try:
-            fp = self.fp
-            if isinstance(fp, TextIOBase):
-                fp = BytesIO(fp.read().encode("utf-8"))
+            fp = transcode(self.fp, codec_in=self.encoding, codec_out="utf-8")
+            ro["encoding"] = "utf-8"
 
             tbl = pacsv.read_csv(
                 fp,

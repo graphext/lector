@@ -35,6 +35,16 @@ def is_empty(buffer: IO) -> bool:
     return empty
 
 
+class CleanTextBuffer(io.TextIOWrapper):
+    """Remove null bytes on the fly."""
+
+    def read(self, *args):
+        return super().read(*args).replace("\x00", "")
+
+    def readline(self, *args):
+        return super().readline(*args).replace("\x00", "")
+
+
 @dataclass
 class Format:
     """Holds all parameters needed to successfully read a CSV file."""
@@ -87,7 +97,7 @@ class Reader(ABC):
                 with reset_buffer(buffer):
                     self.encoding = self.encoding.detect(buffer)
 
-            buffer = io.TextIOWrapper(buffer, encoding=self.encoding, errors="replace")
+            buffer = CleanTextBuffer(buffer, encoding=self.encoding, errors="replace")
         else:
             self.encoding = buffer.encoding or "UTF-8"
 

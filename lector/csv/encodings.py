@@ -32,11 +32,11 @@ def detect_bom(bs: bytes):
     return None
 
 
-def prop_decoding_errors(bs: bytes, encoding: str) -> float:
+def decoding_errors(bs: bytes, encoding: str, prop: bool = True) -> float:
     """The proportion of characters that couldn't be decoded correctly."""
     string = bytes.decode(bs, encoding, errors="replace")
-    n_err = string.count(CODEC_ERR_CHAR)
-    return n_err / len(string)
+    err = string.count(CODEC_ERR_CHAR) / (len(string) if prop else 1.0)
+    return err
 
 
 @dataclass
@@ -54,7 +54,7 @@ class Chardet(EncodingDetector):
 
     n_bytes: int = int(1e7)  # 10 MB
     """Use this many bytes to detect encoding."""
-    error_threshold: float = 0.0
+    error_threshold: float = 0.001
     """A greater proportion of decoding errors than this will be considered a failed encoding."""
     confidence_threshold: float = 0.6
     """Minimum level of confidence to accept an encoding automatically detected by cchardet."""
@@ -71,7 +71,7 @@ class Chardet(EncodingDetector):
         if bom_encoding:
             return bom_encoding
 
-        if prop_decoding_errors(head, "utf-8") <= self.error_threshold:
+        if decoding_errors(head, "utf-8", prop=True) <= self.error_threshold:
             return "utf-8"
 
         detected = cdet.detect(head)
