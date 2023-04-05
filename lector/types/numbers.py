@@ -6,7 +6,10 @@ https://github.com/google/re2/wiki/Syntax
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
+from enum import Enum
+from typing import Literal
 
 import pyarrow as pa
 import pyarrow.compute as pac
@@ -25,6 +28,14 @@ from ..utils import (
 from .abc import Conversion, Converter, Registry
 from .regex import RE_INT, RE_IS_FLOAT
 
+DECIMAL_SUPPORT_MIN = 0.3  # 30%
+DECIMAL_CONFIDENCE_MIN = 1.5  # 150%
+
+
+class DecimalMode(str, Enum):
+    INFER = "INFER"
+    COMPARE = "COMPARE"
+
 
 def clean_float_pattern(thousands: str = ",") -> str:
     """Removes characters in number strings that Arrow cannot parse."""
@@ -34,6 +45,123 @@ def clean_float_pattern(thousands: str = ",") -> str:
 
     # Match a "+" at the beginning and a period anywhere
     return r"^\+|\."
+
+
+def decimal_delimiter(s: str) -> Literal["."] | Literal[","] | None:  # noqa: PLR0911, PLR0912
+    """Infer decimal delimiter from string representation s of an input number."""
+    num_commas = 0
+    num_dots = 0
+    num_delims = 0
+    first_comma_idx = None
+    first_dot_idx = None
+    n = len(s)
+
+    for i, c in enumerate(s):
+        if i > 20 and num_delims == 0:  # noqa: PLR2004
+            return None  # Early out for long strings that are unlikely to represent numbers
+
+        if c == ".":
+            if i == 0 or (i == 1 and s[0] == "0"):
+                return "."  # ".123" or "0.123": can only be decimal
+
+            if i >= 4 and num_delims == 0:  # noqa: PLR2004
+                return "."  # First delim at 5th position: cannot be thousands (1234.00)
+
+            if i + 3 > n:
+                return "."  # Less than 3 characters after delim: cannot be thousands
+
+            num_dots += 1
+            num_delims += 1
+
+            if first_dot_idx is None:
+                first_dot_idx = i
+
+        elif c == ",":
+            if i == 0 or (i == 1 and s[0] == "0"):
+                return ","  # ",123" or "0,123": can only be decimal
+
+            if i >= 4 and num_delims == 0:  # noqa: PLR2004
+                return ","  # First delim at 5th position: cannot be thousands (1234,00)
+
+            if i + 3 > n:
+                return ","  # Less than 3 characters after delim: cannot be thousands
+
+            num_commas += 1
+            num_delims += 1
+
+            if first_comma_idx is None:
+                first_comma_idx = i
+
+    if num_commas > 1:
+        return "."
+    if num_dots > 1:
+        return ","
+    if num_dots > 0 and num_commas > 0:
+        return "." if first_comma_idx < first_dot_idx else ","
+
+    # Undecidable
+    return None
+
+
+def infer_decimal_delimiter(arr: Array) -> Literal["."] | Literal[","] | None:
+    """Get most frequent decimal delimiter in array.
+
+    If most frequent delimiter doesn't occur in sufficient proportion (support),
+    or not significantly more often than other delimiters (confidence), returns
+    None.
+    """
+    n = len(arr)
+    counts = Counter(decimal_delimiter(s.as_py()) for s in arr) + Counter({".": 0, ",": 0})
+    ranked = [d for d in counts.most_common(3) if d[0]]
+    print(f"{ranked=}")
+
+    if all(delim[1] == 0 for delim in ranked):
+        return None
+
+    # Most frequent delimiter should occur in at least 30% of rows
+    if (ranked[0][1] / n) < DECIMAL_SUPPORT_MIN:
+        return None
+
+    # Most frequent delimiter should occur at least 150% as often as next delimiter
+    if ranked[1][1] > 0 and (ranked[0][1] / ranked[1][1]) < DECIMAL_CONFIDENCE_MIN:
+        return None
+
+    return ranked[0][0]
+
+
+def clean_float_strings(arr: Array, decimal: str) -> tuple[Array, Array, float]:
+    """Prepare an array of strings so that Arrow can cast the result to floats.
+
+    Arrow allows exponential syntax and omission of 0s before and after the decimal point,
+    i.e. the following are all valid string representations of floating point numbers:
+    "-1e10", "1e10", "1e-2", "1.2e3", "-1.2e3", "1." ".12", "-1.", "-.1".
+
+    Arrow doesn't allow prefix of a positive sign indicator, nor thousands separator, i.e.
+    the following are not(!) valid:
+    "+1e10", "+1.", "+.1", "123,456.0"
+
+    We hence remove occurrences of both the thousands character and the positive sign
+    before extracting the floating point part of strings using regex.
+
+    Also see following for more regex parsing options:
+    https://stackoverflow.com/questions/12643009/regular-expression-for-floating-point-numbers
+
+    Note, we don't parse as float if there isn't a single value with decimals. If this is
+    the case they should be integers really, and if they haven't been parsed as ints before,
+    that's because the values didn't fit into Arrow's largesy integer type, in which case it
+    isn't safe to parse as float, which Arrow would otherwise do unsafely(!) and silently.
+    """
+    thousands = "," if decimal == "." else "."
+    pattern = clean_float_pattern(thousands)
+    clean = pac.replace_substring_regex(arr, pattern=pattern, replacement="")
+    if decimal == ",":
+        clean = pac.replace_substring(clean, pattern=",", replacement=".", max_replacements=1)
+
+    # Arrow doesn't recognize upper case exponential ("1.03481E-11")
+    clean = pac.utf8_lower(clean)
+    is_float = pac.match_substring_regex(clean, pattern=RE_IS_FLOAT)
+    prop_valid = proportion_trueish(is_float)
+    return clean, is_float, prop_valid
 
 
 def maybe_parse_ints(
@@ -82,44 +210,30 @@ def maybe_parse_ints(
     return None
 
 
-def maybe_parse_floats(arr: Array, threshold: float = 0.5, decimal: str = ".") -> Array | None:
-    """Parse valid string representations of floating point numbers.
+def maybe_parse_floats(
+    arr: Array,
+    threshold: float = 0.5,
+    decimal: str | DecimalMode = DecimalMode.INFER,
+) -> Array | None:
+    """Parse valid string representations of floating point numbers."""
+    if decimal == DecimalMode.INFER:
+        decimal = infer_decimal_delimiter(arr.drop_null())
+        if decimal is None:
+            return None
 
-    Arrow allows exponential syntax and omission of 0s before and after the decimal point,
-    i.e. the following are all valid string representations of floating point numbers:
-    "-1e10", "1e10", "1e-2", "1.2e3", "-1.2e3", "1." ".12", "-1.", "-.1".
+    if isinstance(decimal, str) and decimal in ".,":
+        clean, is_float, prop_valid = clean_float_strings(arr, decimal=decimal)
+    elif decimal == DecimalMode.COMPARE:
+        result_dot = clean_float_strings(arr, decimal=".")
+        result_comma = clean_float_strings(arr, decimal=",")
+        if result_dot[2] >= result_comma[2]:
+            clean, is_float, prop_valid = result_dot
+        else:
+            clean, is_float, prop_valid = result_comma
+    else:
+        raise ValueError(f"Must have decimal char or one of ['infer', 'compare']! Got '{decimal}'.")
 
-    Arrow doesn't allow prefix of a positive sign indicator, nor thousands separator, i.e.
-    the following are not(!) valid:
-    "+1e10", "+1.", "+.1", "123,456.0"
-
-    We hence remove occurrences of both the thousands character and the positive sign
-    before extracting the floating point part of strings using regex.
-
-    Also see following for more regex parsing options:
-    https://stackoverflow.com/questions/12643009/regular-expression-for-floating-point-numbers
-
-    Note, we don't parse as float if there isn't a single value with decimals. If this is
-    the case they should be integers really, and if they haven't been parsed as ints before,
-    that's because the values didn't fit into Arrow's largesy integer type, in which case it
-    isn't safe to parse as float, which Arrow would otherwise do unsafely(!) and silently.
-
-    TODO:
-
-    - try to fold the empty string case into the regex directly to avoid another pass
-      over the data
-
-    """
-    if pac.sum(pac.count_substring(arr, pattern=decimal)).as_py() == 0:
-        return None
-
-    thousands = "," if decimal == "." else "."
-    pattern = clean_float_pattern(thousands)
-    clean = pac.replace_substring_regex(arr, pattern=pattern, replacement="")
-    clean = pac.utf8_lower(clean)  # Arrow doesn't recognize upper case exponential ("1.03481E-11")
-
-    is_float = pac.match_substring_regex(clean, pattern=RE_IS_FLOAT)
-    if proportion_trueish(is_float) < threshold:
+    if prop_valid < threshold:
         return None
 
     valid = pac.if_else(is_float, clean, None)  # non-floats -> null
@@ -184,7 +298,7 @@ class Downcast(Converter):
 class Number(Converter):
     """Attempts to parse strings into floats or ints followed by downcasting."""
 
-    decimal: str = "."
+    decimal: str | DecimalMode = DecimalMode.INFER
     allow_unsigned_int: bool = True
     max_int: int | None = None
 
