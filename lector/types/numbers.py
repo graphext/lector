@@ -47,63 +47,54 @@ def clean_float_pattern(thousands: str = ",") -> str:
     return r"^\+|\."
 
 
-def decimal_delimiter(s: str) -> Literal["."] | Literal[","] | None:  # noqa: PLR0911, PLR0912
-    """Infer decimal delimiter from string representation s of an input number."""
-    num_commas = 0
-    num_dots = 0
-    num_delims = 0
-    first_comma_idx = None
-    first_dot_idx = None
+def decimal_delimiter(  # noqa: PLR0911, PLR0912
+    s: str,
+    n_chars_max: int = 20,
+) -> Literal[".", ","] | None:
+    """Infer decimal delimiter from string representation s of an input number.
+
+    Returns None if not unambiguously inferrable.
+    """
+    n_commas = n_dots = n_delims = 0
+    first_comma_idx = first_dot_idx = None
     n = len(s)
 
     for i, c in enumerate(s):
-        if i > 20 and num_delims == 0:  # noqa: PLR2004
+        if i > n_chars_max and n_delims == 0:  # noqa: PLR2004
             return None  # Early out for long strings that are unlikely to represent numbers
 
-        if c == ".":
+        if c in ".,":
             if i == 0 or (i == 1 and s[0] == "0"):
-                return "."  # ".123" or "0.123": can only be decimal
+                return c  # ".123" or "0.123": can only be decimal
 
-            if i >= 4 and num_delims == 0:  # noqa: PLR2004
-                return "."  # First delim at 5th position: cannot be thousands (1234.00)
+            if i >= 4 and n_delims == 0:  # noqa: PLR2004
+                return c  # First delim at 5th position: cannot be thousands (1234.00)
 
             if i + 3 > n:
-                return "."  # Less than 3 characters after delim: cannot be thousands
+                return c  # Less than 3 characters after delim: cannot be thousands
 
-            num_dots += 1
-            num_delims += 1
+            n_delims += 1
 
-            if first_dot_idx is None:
-                first_dot_idx = i
+            if c == ".":
+                n_dots += 1
+                if first_dot_idx is None:
+                    first_dot_idx = i
+            else:
+                n_commas += 1
+                if first_comma_idx is None:
+                    first_comma_idx = i
 
-        elif c == ",":
-            if i == 0 or (i == 1 and s[0] == "0"):
-                return ","  # ",123" or "0,123": can only be decimal
-
-            if i >= 4 and num_delims == 0:  # noqa: PLR2004
-                return ","  # First delim at 5th position: cannot be thousands (1234,00)
-
-            if i + 3 > n:
-                return ","  # Less than 3 characters after delim: cannot be thousands
-
-            num_commas += 1
-            num_delims += 1
-
-            if first_comma_idx is None:
-                first_comma_idx = i
-
-    if num_commas > 1:
+    if n_commas > 1:
         return "."
-    if num_dots > 1:
+    if n_dots > 1:
         return ","
-    if num_dots > 0 and num_commas > 0:
+    if n_dots > 0 and n_commas > 0:
         return "." if first_comma_idx < first_dot_idx else ","
 
-    # Undecidable
     return None
 
 
-def infer_decimal_delimiter(arr: Array) -> Literal["."] | Literal[","] | None:
+def infer_decimal_delimiter(arr: Array) -> Literal[".", ","] | None:
     """Get most frequent decimal delimiter in array.
 
     If most frequent delimiter doesn't occur in sufficient proportion (support),
@@ -113,7 +104,6 @@ def infer_decimal_delimiter(arr: Array) -> Literal["."] | Literal[","] | None:
     n = len(arr)
     counts = Counter(decimal_delimiter(s.as_py()) for s in arr) + Counter({".": 0, ",": 0})
     ranked = [d for d in counts.most_common(3) if d[0]]
-    print(f"{ranked=}")
 
     if all(delim[1] == 0 for delim in ranked):
         return None
