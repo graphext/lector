@@ -284,8 +284,11 @@ class Timestamp(Converter):
             result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type))
 
-        if pat.is_timestamp(array.type) and array.type.unit != self.unit:
-            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+        if pat.is_timestamp(array.type):
+            result = array
+            if array.type.unit != self.unit:
+                result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+
             result = self.to_timezone(result, self.tz)
             return Conversion(result, self.meta(result.type))
 
