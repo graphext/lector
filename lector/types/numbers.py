@@ -9,7 +9,6 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
 
 import pyarrow as pa
 import pyarrow.compute as pac
@@ -26,7 +25,7 @@ from ..utils import (
     smallest_int_type,
 )
 from .abc import Conversion, Converter, Registry
-from .regex import RE_INT, RE_IS_FLOAT
+from .regex import RE_IS_FLOAT, RE_IS_INT
 
 DECIMAL_SUPPORT_MIN = 0.3  # 30%
 DECIMAL_CONFIDENCE_MIN = 1.5  # 150%
@@ -50,13 +49,13 @@ def clean_float_pattern(thousands: str = ",") -> str:
 def decimal_delimiter(  # noqa: PLR0911, PLR0912
     s: str,
     n_chars_max: int = 20,
-) -> Literal[".", ","] | None:
+) -> str | None:
     """Infer decimal delimiter from string representation s of an input number.
 
     Returns None if not unambiguously inferrable.
     """
     n_commas = n_dots = n_delims = 0
-    first_comma_idx = first_dot_idx = None
+    first_comma_idx = first_dot_idx = -1
     n = len(s)
 
     for i, c in enumerate(s):
@@ -94,7 +93,7 @@ def decimal_delimiter(  # noqa: PLR0911, PLR0912
     return None
 
 
-def infer_decimal_delimiter(arr: Array) -> Literal[".", ","] | None:
+def infer_decimal_delimiter(arr: Array) -> str | None:
     """Get most frequent decimal delimiter in array.
 
     If most frequent delimiter doesn't occur in sufficient proportion (support),
@@ -159,43 +158,27 @@ def maybe_parse_ints(
     threshold: float = 1.0,
     allow_unsigned: bool = False,
 ) -> Array | None:
-    """Use regex to extract casteable ints.
+    """Use regex to extract castable ints.
 
     Arrow's internal casting from string to int doesn't allow for an
-    initial sign character, so we have to handle that separately.
-
-    Arrows regex returns a struct array containing a ``is_valid`` field
-    and one field per capture group (the groups in the regex need to
-    be named instead of just numbered, while the result can only be inspected
-    using group indices, hmmm). Unfortunately, the captured fields
-    will be empty strings rather than null, where no match was found.
-    Only ``is_valid`` knows which rows matched.
+    initial positive sign character, so we have to handle that separately.
     """
-    parsed = pac.extract_regex(arr, RE_INT)
-    is_int = parsed.is_valid()
-
+    is_int = pac.match_substring_regex(arr, pattern=RE_IS_INT)
     valid_prop = pac.sum(is_int).as_py() / (len(arr) - arr.null_count)
     if valid_prop < threshold:
         return None
 
-    # Get named capture groups by index
-    num = pac.struct_field(parsed, [1])
-    num = pac.if_else(is_int, num, None)  # "" -> null
-    is_negative = pac.equal(pac.struct_field(parsed, [0]), "-")
+    clean = pac.if_else(is_int, arr, None)
+    clean = pac.replace_substring_regex(clean, r"^\+", "")
 
     try:
-        num = pac.cast(num, pa.int64())
-        sign = pac.if_else(is_negative, -1, 1)
-        return pac.multiply_checked(num, sign)
+        return pac.cast(clean, pa.int64())
     except Exception:
         if allow_unsigned:
-            n_negative = pac.sum(is_negative).as_py()
-
-            if n_negative == 0:
-                try:
-                    return pac.cast(num, pa.uint64())
-                except Exception as exc:
-                    LOG.error(exc)
+            try:
+                return pac.cast(clean, pa.uint64())
+            except Exception as exc:
+                LOG.error(exc)
 
     return None
 

@@ -78,8 +78,8 @@ LECTOR_TYPES = {
     "list_uint8_2": pa.list_(pa.uint8()),
     "list_str": pa.list_(pa.string()),
     "list_str_2": pa.list_(pa.string()),
-    "date_iso": pa.timestamp(unit="ms"),
-    "date_custom": pa.timestamp(unit="ms"),
+    "date_iso": pa.timestamp(unit="ns", tz="UTC"),
+    "date_custom": pa.timestamp(unit="ns", tz="UTC"),
     "text": pa.string(),
     "cat": pa.dictionary(index_type=pa.int32(), value_type=pa.string()),
 }

@@ -1,7 +1,10 @@
 """Common regex patterns used in mutiple modules."""
 
-RE_INT = "^(?P<sign>[+-])?(?P<num>[0-9]+)$"
+RE_INT_SIGN = "^(?P<sign>[+-])?(?P<num>[0-9]+)$"
 """Capture optional sign and numeric parts in integer strings."""
+
+RE_IS_INT = r"^\+?\-?[0-9]+$"
+"""Strings matching int representations we're able to parse."""
 
 RE_IS_FLOAT = "^[-]?[0-9]*[.]?[0-9]*(?:[e][+-]?[0-9]+)?$"
 """Strings matching float representations convertable by Arrow. Allows ints too,
