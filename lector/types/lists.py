@@ -132,8 +132,8 @@ class List(Converter):
         elif pat.is_timestamp(vtype):
             semantic = "list[date]"
         elif pat.is_integer(vtype):
-            semantic = "list[number[int64]]"
+            semantic = f"list[number[{vtype}]]"
         else:
-            semantic = "list[number[float64]]"
+            semantic = f"list[number[{vtype}]]"
 
         return Conversion(result, meta={"semantic": semantic})
