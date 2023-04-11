@@ -54,7 +54,7 @@ def decimal_delimiter(  # noqa: PLR0911, PLR0912
     Returns None if not unambiguously inferrable.
     """
     n_commas = n_dots = n_delims = 0
-    first_comma_idx = first_dot_idx = -1
+    first_comma_idx = first_dot_idx = None
     n = len(s)
 
     for i, c in enumerate(s):
