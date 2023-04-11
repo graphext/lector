@@ -68,4 +68,4 @@ __all__ = [
     "table_view",
 ]
 
-__version__ = "0.2.24"
+__version__ = "0.2.25"
