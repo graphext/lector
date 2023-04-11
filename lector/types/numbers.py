@@ -82,12 +82,16 @@ def decimal_delimiter(  # noqa: PLR0911, PLR0912
                 if first_comma_idx is None:
                     first_comma_idx = i
 
+    if n_dots == 1 and n_commas == 0:
+        return "."
+    if n_dots > 0 and n_commas > 0:
+        return "." if first_comma_idx < first_dot_idx else ","
+    if n_commas == 1 and n_dots == 0:
+        return ","
     if n_commas > 1:
         return "."
     if n_dots > 1:
         return ","
-    if n_dots > 0 and n_commas > 0:
-        return "." if first_comma_idx < first_dot_idx else ","
 
     return None
 
