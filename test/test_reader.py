@@ -1,4 +1,5 @@
 """Test CSV readers."""
+import csv
 import io
 import sys
 from csv import get_dialect
@@ -8,6 +9,7 @@ from hypothesis import given
 from hypothesis.strategies import data
 from hypothesis_csv.strategies import csv as csv_strat
 
+import lector
 from lector.csv import ArrowReader, Dialect, EmptyFileError
 
 from .test_dialects import fix_expected_dialect
@@ -27,18 +29,44 @@ SHAPES = [
 
 EMPTY = ["", "\n", "\n\n", "\r\n"]
 
+NULL_BYTES_CSV = b"""
+col1,col_\0_2,col3
+1,abc,x
+2,de\0fg,y
+"""
+
+UNNAMED = b"""
+col1,,col3,,col5
+1,2,3,4,5
+6,7,8,9,10
+"""
+
 
 @pytest.mark.parametrize("csv", EMPTY)
 def test_empty(csv: str):
-    """Correct number of columns and rows."""
-    csv = io.BytesIO(csv.encode("utf-8"))
+    fp = io.BytesIO(csv.encode("utf-8"))
     with pytest.raises(EmptyFileError):
-        ArrowReader(csv, log=False).read()
+        ArrowReader(fp, log=False).read()
 
 
-# @given(data=data())
-# @pytest.mark.parametrize("shape", SHAPES)
-# def test_parsed_shapes(shape, data):
+def test_unnamed():
+    """Automatic names for unnnamed columns"""
+    fp = io.BytesIO(UNNAMED)
+    tbl = lector.read_csv(fp)
+    assert tbl.column_names == ["col1", "Unnamed_0", "col3", "Unnamed_1", "col5"]
+
+
+def test_null_bytes():
+    """For now, null bytes don't throw error, but are also not removed automatically!"""
+
+    with pytest.raises(csv.Error):
+        # python's csv reader throws error on null byte
+        s = io.StringIO(NULL_BYTES_CSV.decode("utf-8"))
+        print("Null-byte CSV:", list(csv.reader(s)))
+
+    tbl = lector.read_csv(io.BytesIO(NULL_BYTES_CSV))
+    assert tbl.column_names == ["col1", "col_\x00_2", "col3"]
+    assert tbl.column("col_\x00_2").to_pylist() == ["abc", "de\x00fg"]
 
 
 @given(data=data())

@@ -2,7 +2,9 @@ import io
 from collections import namedtuple
 
 import pyarrow as pa
+import pyarrow.types as pat
 
+import lector
 from lector import ArrowReader, Autocast
 
 from .utils import equal
@@ -83,6 +85,62 @@ LECTOR_TYPES = {
     "text": pa.string(),
     "cat": pa.dictionary(index_type=pa.int32(), value_type=pa.string()),
 }
+
+DELIM_CSV = b"""
+dot_delim, comma_delim, mixed_delim_dot, mixed_delim_comma, mixed_delim
+"1,234.0","1.234,0","1,234.0","1.234,0","1.234,0"
+"1,234,456",1.234.456,"1,234,456",1.234.456,1.234.456
+NA,NA,NA,NA,NA
+"1,234,456.987","1.234.456,987","1,234,456.987","1.234.456,987","1.234.456,987"
+0.1,"0,1","0.1","0,1",0.1
+.1,",1",",1",.1,.1
+98765.123,"98765,123","98765,123",98765.123,98765.123
+"""
+
+# ruff: noqa: E501
+LIST_CSV = """
+lnum1,lnum2,lnum_NA_3,lnum4,lcat5,lfloat6,lfloat7,lfloat8,lfloat_DEL_9
+"[0,1,2]","[0,1,2]","['123', '456', NA, '789']","[123, 456, 789]","[a,b,c]","[123.45, 678.90]","[""123.45"", ""678.90""]","['123.45', '678.90']","['123,45', '678,90']"
+"[7,8,9]","[7,8,9]","['123', '456', NA, '789']","[123, 456, 789]","(d,e)","[123, 678]","[""123"", ""678""]","['123', '678']","['123', '678']"
+"[]","[4]","[123, 456, NA, 789]","[123, 456, 789]","<f>","[123.45, 678.90]","[""123.45"", ""678.90""]","['123.45', '678.90', '0.0']","['123,45', '678,90', '0,0']"
+"NA","NA",NA,NA,NA,NA,NA,NA,NA,NA
+"""
+
+
+def test_decimals():
+    """Based on inferred decimal delimiter, thousands delimiter gets removed.
+
+    If delimiter is ambiguous, result will be dict.
+    """
+    tbl = lector.read_csv(io.BytesIO(DELIM_CSV))
+
+    for i in range(4):
+        assert pat.is_floating(tbl.column(i).type)
+
+    assert pat.is_dictionary(tbl.column(4).type)
+
+
+def test_list():
+    """List parsing. NAs are not allowed in float lists. Also, decimal delimiter must be the period character!"""
+    fp = io.BytesIO(LIST_CSV.encode("utf-8"))
+    tbl = lector.read_csv(fp)
+
+    exp_types = {
+        "lnum1": pa.list_(pa.uint8()),
+        "lnum2": pa.list_(pa.uint8()),
+        "lnum_NA_3": pa.list_(pa.string()),  # NA not supported in numeric lists
+        "lnum4": pa.list_(pa.uint16()),
+        "lcat5": pa.list_(pa.string()),
+        "lfloat6": pa.list_(pa.float64()),
+        "lfloat7": pa.list_(pa.float64()),
+        "lfloat8": pa.list_(pa.float64()),
+        "lfloat_DEL_9": pa.list_(
+            pa.uint16()
+        ),  # comma as decimal delimiter not supported (interpreted as csv delimter)
+    }
+
+    for col in tbl.column_names:
+        assert tbl.column(col).type == exp_types[col]
 
 
 def test_inference():
