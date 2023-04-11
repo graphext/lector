@@ -21,7 +21,6 @@ from ..utils import (
     empty_to_null,
     min_max,
     proportion_equal,
-    proportion_trueish,
     smallest_int_type,
 )
 from .abc import Conversion, Converter, Registry
@@ -101,7 +100,8 @@ def infer_decimal_delimiter(arr: Array) -> str | None:
     None.
     """
     n = len(arr)
-    counts = Counter(decimal_delimiter(s.as_py()) for s in arr) + Counter({".": 0, ",": 0})
+    counts = Counter(decimal_delimiter(s.as_py()) for s in arr)
+    counts.update({".": 0, ",": 0})
     ranked = [d for d in counts.most_common(3) if d[0]]
 
     if all(delim[1] == 0 for delim in ranked):
@@ -149,7 +149,7 @@ def clean_float_strings(arr: Array, decimal: str) -> tuple[Array, Array, float]:
     # Arrow doesn't recognize upper case exponential ("1.03481E-11")
     clean = pac.utf8_lower(clean)
     is_float = pac.match_substring_regex(clean, pattern=RE_IS_FLOAT)
-    prop_valid = proportion_trueish(is_float)
+    prop_valid = pac.sum(is_float).as_py() / (len(arr) - arr.null_count)
     return clean, is_float, prop_valid
 
 
