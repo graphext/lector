@@ -68,8 +68,8 @@ def decimal_delimiter(  # noqa: PLR0911, PLR0912
             if i >= 4 and n_delims == 0:  # noqa: PLR2004
                 return c  # First delim at 5th position: cannot be thousands (1234.00)
 
-            if i + 3 > n:
-                return c  # Less than 3 characters after delim: cannot be thousands
+            if i + 3 >= n:
+                return c  # Less than 3 characters after delim: cannot be thousands (1.12)
 
             n_delims += 1
 
