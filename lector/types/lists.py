@@ -1,6 +1,14 @@
+"""List parsing and casting.
+
+Currently NOT supported in CSV strings:
+
+- floats with comma as the decimal delimiter (must be the period character)
+- floats with thousands separator
+"""
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import suppress
 from csv import reader as csvreader
 from dataclasses import dataclass
 
@@ -53,7 +61,7 @@ def maybe_cast_lists(
     for type in types:
         type = ensure_type(type)
 
-        try:
+        with suppress(Exception):
             result = pac.cast(arr, pa.list_(type))
 
             if type == "int64" and downcast:
@@ -69,8 +77,6 @@ def maybe_cast_lists(
                         LOG.error("Will not downcast lists of int64.")
 
             return result
-        except Exception:
-            pass  # noqa
 
     return None
 

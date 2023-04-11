@@ -12,6 +12,7 @@ from pyarrow import Array, ChunkedArray, Table
 from ..log import LOG, iformat, pformat, schema_diff_view, track
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
+from .numbers import DecimalMode
 from .strings import Category
 
 Config = dict[str, dict]
@@ -21,7 +22,7 @@ Converters = Union[Config, Iterable[Converter], None]
 """Accepted argument type where converters are expected."""
 
 DEFAULT_CONVERTERS: Config = {
-    "number": {"threshold": 0.95, "allow_unsigned_int": True, "decimal": "."},
+    "number": {"threshold": 0.95, "allow_unsigned_int": True, "decimal": DecimalMode.INFER},
     "boolean": {"threshold": 1.0},
     "list": {"threshold": 0.95, "threshold_urls": 0.8},
     "timestamp": {"threshold": 0.95},
