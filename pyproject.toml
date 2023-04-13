@@ -80,7 +80,9 @@ ignore = [
 ]
 
 # Never try to fix these
-unfixable = []
+unfixable = [
+    "ERA001",  # Don't automatically delete commented out code
+]
 
 exclude = [
     ".bzr",

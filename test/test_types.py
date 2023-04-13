@@ -140,7 +140,7 @@ def test_list():
     }
 
     for col in tbl.column_names:
-        assert tbl.column(col).type == exp_types[col]
+        assert equal(tbl.column(col).type, exp_types[col], col)
 
 
 def test_inference():
