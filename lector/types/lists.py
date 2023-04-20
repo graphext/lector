@@ -7,7 +7,6 @@ Currently NOT supported in CSV strings:
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
 from contextlib import suppress
 from csv import reader as csvreader
 from dataclasses import dataclass
@@ -21,32 +20,42 @@ from pyarrow import Array, DataType
 from ..log import LOG
 from ..utils import ensure_type, min_max, proportion_trueish, smallest_int_type
 from .abc import Conversion, Converter, Registry
-from .regex import RE_LIST_LIKE, RE_LIST_PARENS
+from .regex import RE_LIST_CLEAN, RE_LIST_LIKE
 from .strings import proportion_url
 
 LIST_TYPES: tuple[str] = (pa.int64(), pa.float64(), pa.timestamp(unit="ms"))
 
+JSON_DECODE = msgspec.json.Decoder(type=list).decode
 
-def parse_lists_csv(
-    strings: Iterator[str],
-    skipinitialspace: bool = True,
-    **kwds,
-) -> Iterator[list[str]]:
+
+def parse_lists_csv(arr: Array, skipinitialspace: bool = True, **kwds) -> Array:
     """Parse strings as lines of CSV, to separate it into individual fields.
 
     Respects the separator being escaped when enclosed in (double) quotes etc.
     """
+    content = pac.replace_substring_regex(arr, pattern=RE_LIST_CLEAN, replacement="")
+    strings = (s.as_py() if s.is_valid else "" for s in content)
     reader = csvreader(strings, skipinitialspace=skipinitialspace, **kwds)
-    for parsed in reader:
-        yield [elem.strip("' ") for elem in parsed]
+    parsed = ([elem.strip("' ") for elem in line] for line in reader)
+    result = pa.array(parsed)
+    result = pac.if_else(arr.is_null(), pa.NA, result)  # Restore original nulls
+    return result
+
+
+def parse_json(s: str):
+    """Parse a single string as json."""
+    l = JSON_DECODE(s)
+
+    if l and any(isinstance(x, (list, dict)) for x in l):
+        l = [str(x) for x in l]
+
+    return l
 
 
 def parse_lists_json(arr: Array) -> Array:
     """Parse strings as lists using the significantly faster msgspec."""
-    decoder = msgspec.json.Decoder(type=list)
-    decode = decoder.decode
-    gen = [decode(s.as_py()) if s.is_valid else None for s in arr]
-    return pa.array(gen, size=len(arr))
+    parsed = (parse_json(s.as_py()) if s.is_valid else None for s in arr)
+    return pa.array(parsed)
 
 
 def proportion_listlike(arr: Array) -> float:
@@ -93,7 +102,6 @@ def maybe_parse_lists(
     arr: Array,
     type: str | DataType | None = None,
     threshold: float = 1.0,
-    allow_empty: bool = True,
 ) -> Array | None:
     """Parse strings into list, optionally with (inferrable) element type."""
     if proportion_listlike(arr.drop_null()) < threshold:
@@ -103,14 +111,7 @@ def maybe_parse_lists(
         result = parse_lists_json(arr)
         LOG.debug("[List] Was able to fast-parse as json")
     except Exception:
-        content = pac.replace_substring_regex(arr, pattern=RE_LIST_PARENS, replacement="")
-        parsed = parse_lists_csv(s.as_py() if s.is_valid else "" for s in content)
-        result = pa.array(parsed, size=len(arr))
-        result = pac.if_else(arr.is_null(), pa.NA, result)  # Keep original nulls
-
-        if allow_empty:
-            was_empty = pac.equal(arr, "[]")
-            result = pac.if_else(was_empty, pa.scalar([], type=pa.list_(pa.string())), result)
+        result = parse_lists_csv(arr)
 
     if type is not None:
         return result.cast(pa.list_(ensure_type(type)))

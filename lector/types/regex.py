@@ -11,14 +11,12 @@ RE_IS_FLOAT = "^[-]?[0-9]*[.]?[0-9]*(?:[e][+-]?[0-9]+)?$"
 but those should have been inferred before trying floats.
 """
 
-RE_LIST_LIKE: str = r"^[\(\[\|\{<].*[\)\]\|\>}]$"
+RE_LIST_LIKE: str = r"^[\(\[\|\{<][\s\S]*[\)\]\|\>}]$"
 """Lists start and end with parenthesis-like characters."""
 
-RE_LIST_CLEAN: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$|['\"\s]"
-"""Remove all parenthesis-like characters from start and end. Whitespace and quotes too."""
+RE_LIST_CLEAN: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$|\r?\n"
+"""Remove all parenthesis-like characters from start and end as well as line breaks."""
 
-RE_LIST_PARENS: str = r"^[\[\{\(\|<]|[\]\}\)\|>]$"
-"""Remove all parenthesis-like characters from start and end."""
 
 RE_URL = (
     r"^(http://www\.|https://www\.|http://|https://)?"  # http:// or https://
