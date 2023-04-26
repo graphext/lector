@@ -26,7 +26,7 @@ from ..utils import (
 from .abc import Conversion, Converter, Registry
 from .regex import RE_IS_FLOAT, RE_IS_INT
 
-DECIMAL_SUPPORT_MIN = 0.3  # 30%
+DECIMAL_SUPPORT_MIN = 0.2  # 20%
 DECIMAL_CONFIDENCE_MIN = 1.5  # 150%
 
 
@@ -111,13 +111,16 @@ def infer_decimal_delimiter(arr: Array) -> str | None:
     if all(delim[1] == 0 for delim in ranked):
         return None
 
-    # Most frequent delimiter should occur in at least 30% of rows
-    if (ranked[0][1] / n) < DECIMAL_SUPPORT_MIN:
-        return None
+    if ranked[1][1] > 0:
+        # If ambiguous
 
-    # Most frequent delimiter should occur at least 150% as often as next delimiter
-    if ranked[1][1] > 0 and (ranked[0][1] / ranked[1][1]) < DECIMAL_CONFIDENCE_MIN:
-        return None
+        if (ranked[0][1] / n) < DECIMAL_SUPPORT_MIN:
+            # Most frequent delimiter should occur in at least 30% of rows
+            return None
+
+        if (ranked[0][1] / ranked[1][1]) < DECIMAL_CONFIDENCE_MIN:
+            # Most frequent delimiter should occur at least 50% more often than next delimiter
+            return None
 
     return ranked[0][0]
 
