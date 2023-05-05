@@ -111,6 +111,14 @@ class Autocast(CastStrategy):
     def cast_array(self, array: Array | ChunkedArray, name: str | None = None) -> Conversion:
         name = name or ""
 
+        if array.null_count == len(array):
+            if self.fallback:
+                LOG.info(f"Column '{name}' is all null, trying fallback {iformat(self.fallback)}")
+                return self.fallback.convert(array)
+
+            LOG.debug(f"Column '{name}' is all null, skipping.")
+            return None
+
         for converter in self.converters:
             sample = array.drop_null().slice(length=self.n_samples)
             if (

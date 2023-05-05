@@ -120,7 +120,10 @@ def maybe_cast_category(
         do_cast = n_unique <= max_cardinality
     elif max_cardinality > 0:
         n_valid = len(arr) - arr.null_count
-        do_cast = (n_unique / n_valid) <= max_cardinality
+        if n_valid == 0:
+            do_cast = True
+        else:
+            do_cast = (n_unique / n_valid) <= max_cardinality
     else:
         do_cast = False
 

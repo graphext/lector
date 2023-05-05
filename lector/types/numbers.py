@@ -156,7 +156,12 @@ def clean_float_strings(arr: Array, decimal: str) -> tuple[Array, Array, float]:
     # Arrow doesn't recognize upper case exponential ("1.03481E-11")
     clean = pac.utf8_lower(clean)
     is_float = pac.match_substring_regex(clean, pattern=RE_IS_FLOAT)
-    prop_valid = pac.sum(is_float).as_py() / (len(arr) - arr.null_count)
+
+    if is_float.null_count == len(is_float):
+        prop_valid = 0.0
+    else:
+        prop_valid = pac.sum(is_float).as_py() / (len(arr) - arr.null_count)
+
     return clean, is_float, prop_valid
 
 
@@ -171,6 +176,9 @@ def maybe_parse_ints(
     initial positive sign character, so we have to handle that separately.
     """
     is_int = pac.match_substring_regex(arr, pattern=RE_IS_INT)
+    if is_int.null_count == len(is_int):
+        return None
+
     valid_prop = pac.sum(is_int).as_py() / (len(arr) - arr.null_count)
     if valid_prop < threshold:
         return None
