@@ -17,7 +17,7 @@ class Boolean(Converter):
     """Converts stringy booleans ("true" / "False"), and ints (0/1) to the boolean type."""
 
     def convert(self, array: Array) -> Conversion | None:
-        if not pat.is_string(array.type):
+        if not pat.is_string(array.type) or array.null_count == len(array):
             return None
 
         meta = {"semantic": "boolean"}

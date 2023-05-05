@@ -171,6 +171,9 @@ def maybe_parse_ints(
     initial positive sign character, so we have to handle that separately.
     """
     is_int = pac.match_substring_regex(arr, pattern=RE_IS_INT)
+    if is_int.null_count == len(arr):
+        return None
+
     valid_prop = pac.sum(is_int).as_py() / (len(arr) - arr.null_count)
     if valid_prop < threshold:
         return None
