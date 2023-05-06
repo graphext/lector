@@ -255,6 +255,9 @@ def maybe_truncate_floats(arr: Array, threshold: float = 1.0) -> Array | None:
 def maybe_downcast_ints(arr: Array) -> Array | None:
     """Convert to smallest applicable int type."""
     vmin, vmax = min_max(arr, skip_nulls=True)
+    if (vmin is None) or (vmax is None):
+        return None
+
     type = smallest_int_type(vmin, vmax)
 
     if type is not None:
@@ -317,7 +320,7 @@ class Number(Converter):
         if (
             pat.is_integer(converted.result.type)
             and self.max_int is not None
-            and pac.max(converted.result).as_py() > self.max_int
+            and (pac.max(converted.result).as_py() or 0) > self.max_int
         ):
             return None
 

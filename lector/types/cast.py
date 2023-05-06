@@ -157,7 +157,11 @@ class Cast:
             disable=not self.log,
         ):
             array = table.column(name)
-            conv = converter.convert(array)
+            try:
+                conv = converter.convert(array)
+            except Exception:
+                LOG.error(f"Couldn't convert column {name} with converter {iformat(converter)}!")
+                raise
 
             if conv is not None:
                 result = conv.result
