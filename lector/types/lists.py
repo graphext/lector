@@ -149,6 +149,10 @@ class List(Converter):
         elif pat.is_integer(vtype):
             semantic = f"list[number[{vtype}]]"
         else:
+            if str(vtype) == "float":
+                # pyarrow's "float" means float32, but pandas would interpret it as float64
+                vtype = "float32"
+
             semantic = f"list[number[{vtype}]]"
 
         return Conversion(result, meta={"semantic": semantic})
