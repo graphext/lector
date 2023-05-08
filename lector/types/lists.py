@@ -127,12 +127,14 @@ class List(Converter):
     threshold_urls: float = 1.0
 
     def convert(self, array: Array) -> Conversion | None:
-        if not pat.is_string(array.type):
-            return None
+        result = None
 
-        result = maybe_parse_lists(array, self.type, self.threshold)
+        if pat.is_string(array.type):
+            result = maybe_parse_lists(array, self.type, self.threshold)
+        elif pat.is_list(array.type):
+            result = array
 
-        if not result:
+        if result is None:
             return None
 
         vtype = result.type.value_type
