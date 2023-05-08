@@ -278,11 +278,15 @@ class Timestamp(Converter):
         # Keep as timezone-naive timestamps
         return array
 
-    def convert(self, array: Array) -> Conversion | None:
+    def convert(self, array: Array) -> Conversion | None:  # noqa: PLR0911
         if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
-            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
-            result = self.to_timezone(result, self.tz)
-            return Conversion(result, self.meta(result.type))
+            try:
+                result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+                result = self.to_timezone(result, self.tz)
+                return Conversion(result, self.meta(result.type))
+            except pa.ArrowNotImplementedError:
+                LOG.error(f"Pyarrow cannot convert {array.type} to timestamp!")
+                return None
 
         if pat.is_timestamp(array.type):
             result = array
