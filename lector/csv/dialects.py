@@ -66,7 +66,9 @@ class Dialect:
             dialect = get_dialect(dialect)
 
         return Dialect(
-            delimiter=dialect.delimiter,
+            # A dialect without delimiter doesn't make sense, though CleverCSV mau return one,
+            # e.g. when a CSV file contains a single column only
+            delimiter=dialect.delimiter or ",",
             quote_char=dialect.quotechar,
             escape_char=dialect.escapechar,
             double_quote=dialect.doublequote,
