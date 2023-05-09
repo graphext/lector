@@ -71,7 +71,8 @@ class Dialect:
             escape_char=dialect.escapechar,
             double_quote=dialect.doublequote,
             skip_initial_space=dialect.skipinitialspace,
-            line_terminator=dialect.lineterminator,
+            # Although most parsers ignore this, Python's csv module complains when its missing
+            line_terminator=dialect.lineterminator or "\r\n",
             quoting=dialect.quoting,
         )
 
