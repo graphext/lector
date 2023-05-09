@@ -308,7 +308,7 @@ class Number(Converter):
                     decimal=self.decimal,
                 )
 
-            if converted:
+            if converted is not None:
                 downcast = Downcast().convert(converted)
                 converted = downcast if downcast is not None else Conversion(converted)
         else:
