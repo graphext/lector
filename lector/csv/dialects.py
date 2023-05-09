@@ -61,21 +61,33 @@ class Dialect:
 
     @classmethod
     def from_builtin(cls, dialect: str | PyDialectT) -> Dialect:
-        """Make an instance from a built-in dialect class."""
+        """Make instance from built-in dialect class configured for reliable reading(!)."""
         if isinstance(dialect, str):
             dialect = get_dialect(dialect)
 
+        # A dialect without delimiter doesn't make sense, though CleverCSV may return one,
+        # e.g. when a CSV file contains a single column only
+        delimiter = dialect.delimiter or ","
+
+        # To read reliably we need one of escape_char or double quote defined
+        double_quote = dialect.doublequote or (dialect.escapechar is None)
+
+        # Although most parsers ignore this, Python's csv module complains when its missing
+        line_terminator = dialect.lineterminator or "\r\n"
+
+        # Minimal quoting won't hurt and is sensible if we already know how quoting is used
+        quoting = dialect.quoting
+        if quoting == QUOTE_NONE and (dialect.quotechar is not None or dialect.doublequote):
+            quoting = QUOTE_MINIMAL
+
         return Dialect(
-            # A dialect without delimiter doesn't make sense, though CleverCSV mau return one,
-            # e.g. when a CSV file contains a single column only
-            delimiter=dialect.delimiter or ",",
+            delimiter=delimiter,
             quote_char=dialect.quotechar,
             escape_char=dialect.escapechar,
-            double_quote=dialect.doublequote,
+            double_quote=double_quote,
             skip_initial_space=dialect.skipinitialspace,
-            # Although most parsers ignore this, Python's csv module complains when its missing
-            line_terminator=dialect.lineterminator or "\r\n",
-            quoting=dialect.quoting,
+            line_terminator=line_terminator,
+            quoting=quoting,
         )
 
     def to_builtin(self) -> PyDialectT:
