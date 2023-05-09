@@ -8,8 +8,9 @@ from typing import Union
 
 import pyarrow as pa
 from pyarrow import Array, ChunkedArray, Table
+from tqdm.auto import tqdm
 
-from ..log import LOG, iformat, pformat, schema_diff_view, track
+from ..log import LOG, iformat, pformat, schema_diff_view
 from ..utils import encode_metadata, schema_diff
 from .abc import Conversion, Converter, Registry
 from .numbers import DecimalMode
@@ -66,7 +67,7 @@ class CastStrategy(ABC):
         schema = table.schema
         columns = self.columns or table.column_names
 
-        for name in track(columns, desc="Autocasting", disable=not self.log):
+        for name in tqdm(columns, desc="Autocasting", disable=not self.log):
             array = table.column(name)
             conv = self.cast_array(array, name=name)
 
@@ -150,7 +151,7 @@ class Cast:
     def cast(self, table: Table) -> Table:
         schema = table.schema
 
-        for _, (name, converter) in track(
+        for _, (name, converter) in tqdm(
             enumerate(self.converters.items()),
             total=len(self.converters),
             desc="Explicit casting",
@@ -174,8 +175,7 @@ class Cast:
                 LOG.error(
                     f"Conversion of columns '{name}' with converter '{iformat(converter)}' failed!"
                 )
-                LOG.error(f"Original column type: {array.type}")
-                LOG.error(f"Original column: {array}")
+                LOG.error(f"Original column ({array.type}):\n{array}")
 
         if self.log:
             diff = schema_diff(schema, table.schema)

@@ -180,7 +180,7 @@ class Category(Converter):
             return None
 
         result = maybe_cast_category(array, self.max_cardinality)
-        return Conversion(result, meta={"semantic": "category"}) if result else None
+        return Conversion(result, meta={"semantic": "category"}) if result is not None else None
 
 
 class Sex(Enum):

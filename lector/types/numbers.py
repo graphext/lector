@@ -279,7 +279,7 @@ class Downcast(Converter):
 
         if pat.is_integer(array.type):
             result = maybe_downcast_ints(array)
-            return Conversion(result) if result else Conversion(array)
+            return Conversion(result) if result is not None else Conversion(array)
 
         return None
 
