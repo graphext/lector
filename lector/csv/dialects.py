@@ -160,7 +160,7 @@ if CLEVER_CSV:
 
         num_chars: int = int(1e6)
         skip: bool = True
-        method: str = "normal"
+        method: str = "auto"
         verbose: bool = False
 
         def detect(self, buffer: TextIO) -> Dialect:

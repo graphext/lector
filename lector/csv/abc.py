@@ -75,7 +75,7 @@ class Reader(ABC):
     ) -> None:
         self.fp = fp
         self.encoding = encoding or encodings.Chardet()
-        self.dialect = dialect or dialects.PySniffer()
+        self.dialect = dialect or dialects.CleverCSV()
         self.preamble = preamble or Preambles
         self.log = log
 
