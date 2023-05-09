@@ -18,7 +18,8 @@ from .abc import EmptyFileError, FileLike, Format, Reader
 
 TypeDict = dict[str, Union[str, DataType]]
 
-MAX_MSG_LEN = 100  # characters
+MAX_MSG_LEN = 200  # characters
+SKIPPED_MSG_N_MAX = 20
 
 
 def clean_column_names(names: list[str]) -> list[str]:
@@ -64,16 +65,20 @@ def transcode(
 class ArrowReader(Reader):
     """Use base class detection methods to configure a pyarrow.csv.read_csv() call."""
 
-    @staticmethod
-    def skip_invalid_row(row: InvalidRow) -> str:
-        if row.text and len(row.text) > MAX_MSG_LEN:
-            row = row._replace(text=row.text[:MAX_MSG_LEN])
+    def skip_invalid_row(self, row: InvalidRow) -> str:
+        self.n_skipped += 1
 
-        LOG.warning(f"Skipping row {row}")
+        if self.n_skipped < SKIPPED_MSG_N_MAX:
+            if row.text and len(row.text) > MAX_MSG_LEN:
+                row = row._replace(text=row.text[:MAX_MSG_LEN])
+                LOG.warning(f"Skipping row:\n{row}")
+
+        elif self.n_skipped == SKIPPED_MSG_N_MAX:
+            LOG.warning("Won't show more skipped row messages.")
+
         return "skip"
 
-    @classmethod
-    def configure(cls, format: Format) -> dict:
+    def configure(self, format: Format) -> dict:
         return {
             "read_options": {
                 "encoding": format.encoding,
@@ -85,7 +90,7 @@ class ArrowReader(Reader):
                 "double_quote": format.dialect.double_quote,
                 "escape_char": format.dialect.escape_char,
                 "newlines_in_values": True,
-                "invalid_row_handler": cls.skip_invalid_row,
+                "invalid_row_handler": self.skip_invalid_row,
             },
             "convert_options": {
                 "check_utf8": False,
@@ -101,6 +106,7 @@ class ArrowReader(Reader):
         null_values: str | Iterable[str] | None = None,
     ) -> pa.Table:
         """Invoke Arrow's parser with inferred CSV format."""
+        self.n_skipped = 0
 
         config = self.configure(self.format)
 
