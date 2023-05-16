@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from contextlib import suppress
 from csv import QUOTE_MINIMAL, QUOTE_NONE, Sniffer, get_dialect
 from csv import Dialect as PyDialect
 from dataclasses import dataclass
@@ -137,7 +138,7 @@ class PySniffer(DialectDetector):
         sniffer.preferred = []
 
         for n_rows in (self.n_rows, 1):
-            try:
+            with suppress(Exception):
                 buffer.seek(pos)
                 sample = "\n".join(islice(buffer, n_rows))
                 dialect = sniffer.sniff(sample, delimiters=self.delimiters)
@@ -158,8 +159,6 @@ class PySniffer(DialectDetector):
                     dialect.quoting = QUOTE_MINIMAL
 
                 return Dialect.from_builtin(dialect)
-            except Exception:
-                pass  # noqa
 
         if self.log:
             LOG.info("Falling back to default dialect...")
@@ -181,6 +180,10 @@ if CLEVER_CSV:
         def detect(self, buffer: TextIO) -> Dialect:
             text = buffer.read(self.num_chars)
             dialect = ccsv.Detector().detect(
-                text, verbose=self.verbose, method=self.method, skip=self.skip
+                text,
+                delimiters=DELIMITER_OPTIONS,
+                verbose=self.verbose,
+                method=self.method,
+                skip=self.skip,
             )
             return Dialect.from_builtin(dialect.to_csv_dialect())
