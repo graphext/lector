@@ -197,6 +197,14 @@ def categories(array: Array | ChunkedArray) -> Array:
     return array.dictionary
 
 
+def is_stringy(type: DataType) -> bool:
+    """Check if array is stringy (string or dictionary of strings)."""
+    if pat.is_string(type):
+        return True
+
+    return pat.is_dictionary(type) and pat.is_string(type.value_type)
+
+
 def with_flatten(arr: Array, func: Callable):
     """Apply a compute function to all elements of flattened (and restored) lists."""
     isna = pac.is_null(arr)

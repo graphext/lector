@@ -5,9 +5,9 @@ from contextlib import suppress
 from dataclasses import dataclass
 
 import pyarrow as pa
-import pyarrow.types as pat
 from pyarrow import Array
 
+from ..utils import is_stringy
 from .abc import Conversion, Converter, Registry
 
 
@@ -17,7 +17,7 @@ class Boolean(Converter):
     """Converts stringy booleans ("true" / "False"), and ints (0/1) to the boolean type."""
 
     def convert(self, array: Array) -> Conversion | None:
-        if not pat.is_string(array.type) or array.null_count == len(array):
+        if not is_stringy(array.type) or array.null_count == len(array):
             return None
 
         meta = {"semantic": "boolean"}
