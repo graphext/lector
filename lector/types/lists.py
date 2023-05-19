@@ -7,6 +7,7 @@ Currently NOT supported in CSV strings:
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from contextlib import suppress
 from csv import reader as csvreader
 from dataclasses import dataclass
@@ -27,17 +28,37 @@ LIST_TYPES: tuple[str] = (pa.int64(), pa.float64(), pa.timestamp(unit="ms"))
 
 JSON_DECODE = msgspec.json.Decoder(type=list).decode
 
+SAFE_CSV_PARSING = False
 
-def parse_lists_csv(arr: Array, skipinitialspace: bool = True, **kwds) -> Array:
+
+def parse_csvs(strings: Iterable[str], safe=SAFE_CSV_PARSING, **kwds) -> Iterable[list]:
+    """Parse a list of strings as CSV, to separate it into individual fields.
+
+    The non-safe option uses python's built-in reader. But it either raises on invalid
+    rows, or silently returns fewer parsed rows than original rows, depending on the
+    "strict" parameter. The safe option will always return the expected number of rows,
+    with values being None where a string couldn't be parsed.
+    """
+    if safe:
+        for s in strings:
+            try:
+                yield next(csvreader([s], **kwds))
+            except Exception:
+                yield None
+    else:
+        yield from csvreader(strings, **kwds)
+
+
+def parse_lists_csv(arr: Array, **kwds) -> Array:
     """Parse strings as lines of CSV, to separate it into individual fields.
 
     Respects the separator being escaped when enclosed in (double) quotes etc.
     """
     content = pac.replace_substring_regex(arr, pattern=RE_LIST_CLEAN, replacement="")
     strings = (s.as_py() if s.is_valid else "" for s in content)
-    reader = csvreader(strings, skipinitialspace=skipinitialspace, **kwds)
-    parsed = ([elem.strip("' ") for elem in line] for line in reader)
-    result = pa.array(parsed)
+    lists = parse_csvs(strings, **kwds)
+    lists = ([elem.strip("' ") for elem in l] if l is not None else l for l in lists)
+    result = pa.array(lists)
     result = pac.if_else(arr.is_null(), pa.NA, result)  # Restore original nulls
     return result
 
@@ -102,6 +123,8 @@ def maybe_parse_lists(
     arr: Array,
     type: str | DataType | None = None,
     threshold: float = 1.0,
+    quote_char: str = '"',
+    delimiter: str = ",",
 ) -> Array | None:
     """Parse strings into list, optionally with (inferrable) element type."""
     if proportion_listlike(arr.drop_null()) < threshold:
@@ -111,7 +134,13 @@ def maybe_parse_lists(
         result = parse_lists_json(arr)
         LOG.debug("[List] Was able to fast-parse as json")
     except Exception:
-        result = parse_lists_csv(arr)
+        try:
+            result = parse_lists_csv(
+                arr, skipinitialspace=True, quotechar=quote_char, delimiter=delimiter
+            )
+        except Exception as exc:
+            LOG.error(f"Cannot parse lists as CSV: {exc}")
+            return None
 
     if type is not None:
         return result.cast(pa.list_(ensure_type(type)))
@@ -125,12 +154,20 @@ class List(Converter):
     type: str | DataType | None = None
     infer_urls: bool = True
     threshold_urls: float = 1.0
+    quote_char: str = '"'
+    delimiter: str = ","
 
     def convert(self, array: Array) -> Conversion | None:
         result = None
 
         if pat.is_string(array.type):
-            result = maybe_parse_lists(array, self.type, self.threshold)
+            result = maybe_parse_lists(
+                array,
+                type=self.type,
+                threshold=self.threshold,
+                quote_char=self.quote_char,
+                delimiter=self.delimiter,
+            )
         elif pat.is_list(array.type):
             result = array
 
