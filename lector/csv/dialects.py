@@ -167,6 +167,19 @@ class PySniffer(DialectDetector):
 
 
 if CLEVER_CSV:
+    # CleverCSV may return non-sensical characters as escapechar.
+    # Monkey-patch to at least limit to ASCII chars.
+    is_potential_escapechar_orig = ccsv.escape.is_potential_escapechar
+
+    def is_potential_escapechar(char, encoding, block_char=None):
+        if not char.isascii():
+            return False
+
+        return is_potential_escapechar_orig(char, encoding, block_char)
+
+    ccsv.escape.is_potential_escapechar = is_potential_escapechar
+    ccsv.potential_dialects.is_potential_escapechar = is_potential_escapechar
+    ccsv.normal_form.is_potential_escapechar = is_potential_escapechar
 
     @dataclass
     class CleverCSV(DialectDetector):
