@@ -83,6 +83,7 @@ class ArrowReader(Reader):
             "read_options": {
                 "encoding": format.encoding,
                 "skip_rows": format.preamble,
+                "block_size": 2 << 20,  # 2 MiB, twice arrow's default of 1 MiB (1 << 20)
             },
             "parse_options": {
                 "delimiter": format.dialect.delimiter,

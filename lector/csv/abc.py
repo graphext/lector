@@ -76,7 +76,7 @@ class Reader(ABC):
         self.fp = fp
         self.encoding = encoding or encodings.Chardet()
         self.dialect = dialect or dialects.CleverCSV()
-        self.preamble = preamble or Preambles
+        self.preamble = preamble if preamble is not None else Preambles
         self.log = log
 
     def decode(self, fp: FileLike) -> TextIO:
