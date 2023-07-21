@@ -61,6 +61,8 @@ TIMESTAMP_FORMATS: list[str] = [
 ]
 
 DATE_FORMATS: list[str] = [
+    "%d-%m-%y",  # %y first since it will fail with 4 digit years,
+    "%d/%m/%y",  # while %Y will not fail on 2 digit years(!)
     "%Y-%m-%d",
     "%d-%m-%Y",
     "%Y/%m/%d",
