@@ -12,5 +12,5 @@ dependencies:
   - python=3.10
   - pip
   - pip:
-    - clevercsv
+    - clevercsv<0.8.1
     - lector @ git+https://github.com/graphext/lector@main
