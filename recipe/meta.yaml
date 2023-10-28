@@ -1,0 +1,52 @@
+{% set name = "lector" %}
+{% set version = "0.3" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 1
+  skip: True  # [win]
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
+
+requirements:
+  host:
+    - python >=3.9,{{PY_VER}}*
+    - pip
+    - setuptools
+    - wheel
+  run:
+    - python {{PY_VER}}*
+    - cchardet
+    - clevercsv <0.8.1
+    - msgspec
+    - pyarrow>=8.0.0
+    - rich
+    - tqdm
+    - typer
+
+test:
+  imports:
+    - lector
+  requires:
+    - hypothesis
+    - hypothesis-csv @ git+https://github.com/jeffbr13/hypothesis-csv.git@master
+    - pytest
+    - pytest-cov
+  commands:
+    - pip check
+    - pytest -v
+
+about:
+  home: https://github.com/graphext/lector
+  summary: A fast and flexible CSV reader
+  description: |
+    Lector aims to be a fast reader for potentially messy CSV files with configurable column type inference.
+    It combines automatic detection of file encodings, CSV dialects (separator, escaping etc.) and preambles (initial lines containing metadata or
+    junk unrelated to the actual tabular data). Its goal is to just-read-the-effing-CSV file without manual configuration in most cases. Each of the
+    detection components is configurable and can be swapped out easily with custom implementations.
+  doc_url: https://lector.readthedocs.io/en/latest/
