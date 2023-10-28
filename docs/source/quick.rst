@@ -36,13 +36,16 @@ the semicolon as separator, having some missing fields, and being encoded in Lat
     18446744073709551615;a;3.14;3;"The Project · Gutenberg » EBook « of Die Fürstin."
     """.encode("ISO-8859-1")
 
-The recommended way to use lector for reading this CSV would be
+    with open("example.csv", "wb") as fp:
+        fp.write(csv)
+
+The recommended way to use lector for reading this CSV (without type-inference) would be
 
 .. code-block:: python
 
-    from lector import ArrowReader
+    import lector
 
-    tbl = ArrowReader(io.BytesIO(csv)).read(types="string")
+    tbl = lector.read_csv("example.csv", types="string", log=True)
 
 which produces something like the following output::
 
@@ -79,13 +82,13 @@ automatically, namely:
 
 Using the detected CSV format, the data is parsed (using pyarrow's ``csv.read_csv()`` under
 the hood). Note we have indicated to arrow to parse all columns using the ``string`` type,
-effectively turning *off* its internal type inference. We apply lector's type inference with
+effectively turning *off* its internal type inference. We can use lector's type inference by
+not specifying the ``types`` argument or selecting it explicitly:
 
 .. code-block:: python
 
-    from lector import Autocast
-
-    tbl = Autocast().cast(tbl)
+    tbl = lector.read_csv("example.csv")
+    tbl = lector.read_csv("example.csv", types=lector.Inference.Auto)  # equivalent
     print(tbl.schema)
 
 We see this results in the most appropriate type for each column:
@@ -111,23 +114,27 @@ Notice that:
 - The text column, containing natural language text, has *not* been converted to a categorical
   type, but kept as simple ``string`` values (it is unlikely to benefit from dictionary-encoding)
 
-We could have relied on arrow's internal type inference instead with the following single-liner:
+We could have relied on arrow's built-in type inference instead, like so:
 
 .. code-block:: python
 
-    typed_table = ArrowReader(io.BytesIO(csv)).read()
+    tbl = lector.read_csv("example.csv", types=lector.Inference.Native)
 
 but this would result in less memory-efficient and even erroneous data types (see the
 pandas and pure arrow comparisons below).
 
 Finally, if you need the CSV table in pandas, lector provides a little helper for correct
-conversion (again, pure arrow's to_pandas(...) isn't smart or flexible enough to use pandas
-extension dtypes for correct conversion):
+conversion (again, pure arrow's ``to_pandas(...)`` isn't smart or flexible enough to use pandas
+extension dtypes for correct conversion). Use it as an argument to ``read_csv(...)`` or explicitly:
 
 .. code-block:: python
 
     from lector.utils import to_pandas
 
+    df = lector.read_csv("example.csv", to_pandas=True)
+
+    # equivalent:
+    tbl = lector.read_csv("example.csv")
     df = to_pandas(tbl)
     print(df)
     print(df.types)
@@ -157,7 +164,7 @@ Compared with pandas
 --------------------
 
 Trying to read CSV files like the above using ``pandas.read_csv(...)`` and default arguments
-only will fail. To find the correct arguments, you'll have to open the CSV in a text editor
+only will fail (at least in pandas < 2.0). To find the correct arguments, you'll have to open the CSV in a text editor
 and manually identify the separator and the initial lines to skip, and then try different
 encodings until you find one that seems to decode all characters correctly. But even if you
 then manage to read the CSV, the result may not be what you expected:

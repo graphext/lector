@@ -11,6 +11,7 @@ and then auto-casting all columns to the most appropriate and efficient data typ
 .. code-block:: python
 
     import io
+    import lector
     from lector import ArrowReader, Autocast
     from lector.log import schema_view
 
@@ -18,10 +19,15 @@ and then auto-casting all columns to the most appropriate and efficient data typ
     1234982348728374,a,0.1,1,, http://www.graphext.com,"[a,b,c]"
     ,b,0.12,,"Natural language text is different from categorical data.", https://www.twitter.com,[d]
     18446744073709551615,a,3.14,3,"The Project · Gutenberg » EBook « of Die Fürstin.",http://www.google.com,"['e', 'f']"
-    """
+    """.encode()
 
-    tbl = ArrowReader(io.StringIO(csv)).read(types="string")
+    # High-level API uses automatic type-inference and casting by default
+    tbl = lector.read_csv(io.BytesIO(csv))
+
+    # Equivalent low-level API
+    tbl = ArrowReader(io.BytesIO(csv)).read(types="string")
     tbl = Autocast().cast(tbl)
+
     schema_view(tbl.schema)
 
 Printing the table schema this way will produce the following output:
@@ -196,13 +202,18 @@ data above:
     from lector import Cast
     from lector.types import Category, Number
 
-    types = {
+    strategy = Cast({
         "id": Number(),
-        "genre": Category(max_cardinality=None)
-    }
+        "genre": Category(max_cardinality=None),
+        # ...
+    })
 
-    tbl = ArrowReader(io.StringIO(csv)).read(types="string")
-    tbl = Cast(types).cast(tbl)
+    # High-level API
+    tbl = lector.read_csv(io.BytesIO(csv), strategy=strategy)
+
+    # Low-level API
+    tbl = ArrowReader(io.BytesIO(csv)).read(types="string")
+    tbl = strategy.cast(tbl)
     schema_view(tbl.schema)
 
 produces
