@@ -10,28 +10,6 @@ omit = [
     "*test/*",
 ]
 
-[tool.black]
-line-length = 100
-target-version = ['py39']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-
-    # The following are specific to Black, you probably don't want those.
-    | blib2to3
-    | tests/data
-)/
-'''
-
 [tool.ruff]
 target-version = "py39"
 line-length = 100
@@ -133,3 +111,7 @@ known-first-party = ["lector"]
 
 [tool.ruff.flake8-bugbear]
 extend-immutable-calls = ["typer.Option"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

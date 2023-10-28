@@ -16,7 +16,7 @@
     // Python
     "[python]": {
         "editor.formatOnSave": true,
-        "editor.formatOnPaste": false,
+        "editor.formatOnPaste": true,
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
         "editor.codeActionsOnSave": {
@@ -24,19 +24,4 @@
             "source.fixAll": true,
         }
     },
-    "python.autoComplete.addBrackets": true,
-    // Python auto-formatting: only enable here.
-    // Uses config in pyproject.toml automatically.
-    "python.formatting.provider": "black",
-    // Python linting
-    "python.linting.enabled": true,
-    "python.linting.pycodestyleEnabled": false,
-    "python.linting.pylintEnabled": false,
-    "python.linting.flake8Enabled": false,
-    "python.linting.mypyArgs": [
-      "--ignore-missing-imports",
-      "--follow-imports=silent",
-      "--show-column-numbers",
-      "--allow-redefinition"
-    ],
 }
