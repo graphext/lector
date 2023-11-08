@@ -32,3 +32,6 @@ RE_TRAILING_DECIMALS: str = r"\.(\d+)$"
 
 RE_FRATIONAL_SECONDS: str = r"(?P<frac>\.\d+)"
 """Allows for timezone after fractional seconds, capturing part to be replaced."""
+
+RE_TZ_OFFSET: str = r"(?P<tz>Z|[+-]\d{2}:?\d{2}$)"
+"""Detect 4 digit timezone offsets, with or without colon."""

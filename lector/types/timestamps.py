@@ -13,20 +13,23 @@ For arrow internals relating to timestamps also see:
   https://arrow.apache.org/docs/cpp/api/datatype.html#_CPPv4N5arrow13TimestampTypeE
 - CSV parsing:
   https://arrow.apache.org/docs/cpp/csv.html#timestamp-inference-parsing
-- pac.local_time preview:
-  http://crossbow.voltrondata.com/pr_docs/34208/cpp/compute.html#timezone-handling
+- Timestamp umbrella issue:
+  https://github.com/apache/arrow/issues/31324
 
 TODO:
 - Fractional seconds are handled manually, also see
-  https://issues.apache.org/jira/browse/ARROW-15883. They are first removed via regex,
+  https://github.com/apache/arrow/issues/20146. They are first removed via regex,
   converted to a pyarrow duration type and later added to parsed timestamps.
 - Timezones are only supported in format "+0100", but not e.g. "+01:00"
+- What to do with mixed timezones:
+  https://stackoverflow.com/questions/75656639/computing-date-features-using-pyarrow-on-mixed-timezone-data
 
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import ClassVar
 
 import pyarrow as pa
 import pyarrow.compute as pac
@@ -36,7 +39,7 @@ from pyarrow import Array, TimestampArray, TimestampScalar, TimestampType
 from ..log import LOG
 from ..utils import proportion_trueish
 from .abc import Conversion, Converter, Registry
-from .regex import RE_FRATIONAL_SECONDS
+from .regex import RE_FRATIONAL_SECONDS, RE_TZ_OFFSET
 
 TIMESTAMP_FORMATS: list[str] = [
     "%Y-%m-%dT%H:%M:%S",
@@ -113,6 +116,32 @@ def fraction_as_duration(arr: Array) -> Array:
         arr = pac.cast(arr, pa.int64())
 
     return pac.cast(arr, pa.duration("ns"))
+
+
+def extract_timezone(timestamps: pa.Array):
+    """Extract timezone from a list of string timestamps.
+
+    Currently, the only supported format is +/-HH[:]MM, e.g. +0100.
+
+    Also, returns None if there are multiple different offsets, after
+    some basic cleaning. E.g. Z and +0000 are considered the same.
+    """
+    res = pac.extract_regex(timestamps, RE_TZ_OFFSET)
+    res = res.drop_null()
+
+    if not len(res):
+        return None
+
+    offsets = res.field(0)
+    offsets = pac.replace_substring(offsets, ":", "")
+    offsets = pac.replace_substring(offsets, "Z", "+0000")
+    offsets = offsets.unique()
+
+    if len(offsets) > 1:
+        return None
+
+    offset = offsets[0].as_py()
+    return f"{offset[:-2]}:{offset[-2:]}"
 
 
 @lru_cache(maxsize=128, typed=False)
@@ -249,10 +278,12 @@ class Timestamp(Converter):
     """When None, default formats are tried in order."""
     unit: str = UNIT
     """Resolution the timestamps are stored with internally."""
-    tz: str = "UTC"
+    tz: str | None = None
     """The desired timezone of the timestamps."""
     convert_temporal: bool = True
     """Whether time/date-only arrays should be converted to timestamps."""
+
+    DEFAULT_TZ: ClassVar[str] = "UTC"
 
     @staticmethod
     def meta(dt: TimestampType) -> dict[str, str]:
@@ -261,7 +292,7 @@ class Timestamp(Converter):
 
     @staticmethod
     def to_timezone(array: TimestampArray, tz: str | None) -> TimestampArray:
-        if tz:
+        if tz is not None:
             if array.type.tz is None:
                 # Interpret as local moments in given timezone to convert to UTC equivalent
                 return pac.assume_timezone(
@@ -280,30 +311,27 @@ class Timestamp(Converter):
         # Keep as timezone-naive timestamps
         return array
 
-    def convert(self, array: Array) -> Conversion | None:  # noqa: PLR0911
-        if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
-            try:
-                result = array.cast(pa.timestamp(unit=self.unit), safe=False)
-                result = self.to_timezone(result, self.tz)
-                return Conversion(result, self.meta(result.type))
-            except pa.ArrowNotImplementedError:
-                LOG.error(f"Pyarrow cannot convert {array.type} to timestamp!")
-                return None
-
-        if pat.is_timestamp(array.type):
-            result = array
-            if array.type.unit != self.unit:
-                result = array.cast(pa.timestamp(unit=self.unit), safe=False)
-
-            result = self.to_timezone(result, self.tz)
+    def convert_date_time(self, array: Array) -> Conversion | None:
+        try:
+            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+            result = self.to_timezone(result, self.tz or self.DEFAULT_TZ)
             return Conversion(result, self.meta(result.type))
-
-        if not pat.is_string(array.type):
+        except pa.ArrowNotImplementedError:
+            LOG.error(f"Pyarrow cannot convert {array.type} to timestamp!")
             return None
 
-        # Pyarrow's strptime behaves different from its internal cast and inference. Only the
-        # latter support timezone offset. So try cast first, and then strptime-based conversion.
+    def convert_timestamp(self, array: Array) -> Conversion | None:
+        result = array
+        if array.type.unit != self.unit:
+            result = array.cast(pa.timestamp(unit=self.unit), safe=False)
+
+        result = self.to_timezone(result, self.tz or self.DEFAULT_TZ)
+        return Conversion(result, self.meta(result.type))
+
+    def convert_strings(self, array: Array) -> Conversion | None:
         try:
+            # Pyarrow's strptime behaves different from its internal cast and inference. Only the
+            # latter support timezone offset. So try cast first, and then strptime-based conversion.
             result = pac.cast(array, pa.timestamp(unit=self.unit))
         except pa.ArrowInvalid:
             try:
@@ -312,7 +340,8 @@ class Timestamp(Converter):
                 result = None
 
         if result is not None:
-            result = self.to_timezone(result, self.tz)
+            tz = self.tz or extract_timezone(array)
+            result = self.to_timezone(result, tz or self.DEFAULT_TZ)
             return Conversion(result, self.meta(result.type) | {"format": "arrow"})
 
         result = maybe_parse_timestamps(
@@ -329,3 +358,12 @@ class Timestamp(Converter):
             return Conversion(result, self.meta(result.type) | {"format": format})
 
         return None
+
+    def convert(self, array: Array) -> Conversion | None:
+        if (pat.is_time(array.type) or pat.is_date(array.type)) and self.convert_temporal:
+            return self.convert_date_time(array)
+
+        if pat.is_timestamp(array.type):
+            return self.convert_timestamp(array)
+
+        return self.convert_strings(array) if pat.is_string(array.type) else None
