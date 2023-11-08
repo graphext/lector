@@ -132,7 +132,7 @@ def extract_timezone(timestamps: pa.Array):
     if not len(res):
         return None
 
-    offsets = res.field(0)
+    offsets = pac.struct_field(res, indices=0)
     offsets = pac.replace_substring(offsets, ":", "")
     offsets = pac.replace_substring(offsets, "Z", "+0000")
     offsets = offsets.unique()
@@ -332,10 +332,10 @@ class Timestamp(Converter):
         try:
             # Pyarrow's strptime behaves different from its internal cast and inference. Only the
             # latter support timezone offset. So try cast first, and then strptime-based conversion.
-            result = pac.cast(array, pa.timestamp(unit=self.unit))
+            result = array.cast(pa.timestamp(unit=self.unit))
         except pa.ArrowInvalid:
             try:
-                result = pac.cast(array, pa.timestamp(unit=self.unit, tz="UTC"))
+                result = array.cast(pa.timestamp(unit=self.unit, tz="UTC"))
             except pa.ArrowInvalid:
                 result = None
 
