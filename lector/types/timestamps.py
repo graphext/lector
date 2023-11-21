@@ -354,7 +354,7 @@ class Timestamp(Converter):
 
         if result is not None:
             result, format = result
-            result = self.to_timezone(result, self.tz)
+            result = self.to_timezone(result, self.tz or self.DEFAULT_TZ)
             return Conversion(result, self.meta(result.type) | {"format": format})
 
         return None
