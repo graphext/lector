@@ -5,4 +5,5 @@ authors:
   given-names: "Thomas"
 title: "Lector"
 version: 0.3.3
+date-released: 2023-12-07
 url: "https://github.com/graphext/lector"
