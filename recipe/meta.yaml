@@ -1,5 +1,5 @@
 {% set name = "lector" %}
-{% set version = "0.3" %}
+{% set version = "0.3.4" %}
 
 package:
   name: {{ name|lower }}
@@ -9,7 +9,7 @@ source:
   path: ..
 
 build:
-  number: 1
+  number: 0
   skip: True  # [win]
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv "
 
@@ -24,7 +24,7 @@ requirements:
     - cchardet
     - clevercsv <0.8.1
     - msgspec
-    - pyarrow>=8.0.0
+    - pyarrow>=15.0.0
     - rich
     - tqdm
     - typer

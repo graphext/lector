@@ -1,4 +1,5 @@
 """A package for fast parsing of messy CSV files and smart-ish type inference."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -68,4 +69,4 @@ __all__ = [
     "table_view",
 ]
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"

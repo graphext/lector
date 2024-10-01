@@ -150,7 +150,7 @@ class ArrowReader(Reader):
                 convert_options=pa.csv.ConvertOptions(**co),
             )
 
-            column_names = clean_column_names(tbl.column_names)
+            column_names = list(clean_column_names(tbl.column_names))
             tbl = tbl.rename_columns(column_names)
             return tbl
         except pa.ArrowInvalid as exc:
