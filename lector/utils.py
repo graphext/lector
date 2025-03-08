@@ -1,13 +1,14 @@
 """Common helpers to work with pyarrow objects."""
+
 from __future__ import annotations
 
 import json
 from collections import namedtuple
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import singledispatch
 from time import perf_counter
-from typing import Callable, Union
+from typing import Union
 
 import pyarrow as pa
 from pyarrow import (
@@ -179,7 +180,7 @@ def map_values(arr: Array, map: dict, unknown: str = "keep") -> Array:
     if unknown == "keep":
         values = [map.get(val, val) for val in values]
     else:
-        values = [map.get(val, None) for val in values]
+        values = [map.get(val) for val in values]
 
     return pa.array(values, type=arr.type)
 
