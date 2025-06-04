@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import singledispatch
 from time import perf_counter
-from typing import Union
+from typing import Any, Union
 
 import pyarrow as pa
 from pyarrow import (
@@ -232,9 +232,17 @@ def encode_metadata(d: dict):
     return {k.encode("utf-8"): json.dumps(v).encode("utf-8") for k, v in d.items()}
 
 
+def maybe_load_json(s: str) -> Any:
+    """Try to load a string as json, returning the original string if it fails."""
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, TypeError):
+        return s
+
+
 def decode_metadata(d: dict):
     """Decode Arrow metadata to dict."""
-    return {k.decode("utf-8"): json.loads(v.decode("utf-8")) for k, v in d.items()}
+    return {k.decode("utf-8"): maybe_load_json(v.decode("utf-8")) for k, v in d.items()}
 
 
 class Timer:
